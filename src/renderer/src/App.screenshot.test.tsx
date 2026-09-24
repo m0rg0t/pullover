@@ -113,35 +113,103 @@ function shellCase(name: string, openWaiting: boolean): void {
 shellCase('inbox-zero-pinned', false)
 shellCase('inbox-zero-opened', true)
 
-test('GitLab shows the connected account when no MRs are returned', async () => {
-  document.documentElement.setAttribute('data-rs-color-mode', 'dark')
-  stubApi(
-    {
-      ...inboxZero(Date.now()),
-      items: [],
-      myLogin: 'group_42_bot',
-      knownRepositories: [],
-    },
-    'comfortable',
-    { provider: 'gitlab', gitlabUrl: 'https://gitlab.example.com' },
-  )
+for (const mode of COLOR_MODES) {
+  test(`GitLab shows the connected account when no MRs are returned (${mode})`, async () => {
+    document.documentElement.setAttribute('data-rs-color-mode', mode)
+    stubApi(
+      {
+        ...inboxZero(Date.now()),
+        items: [],
+        myLogin: 'devuser',
+        knownRepositories: [],
+      },
+      'comfortable',
+      { provider: 'gitlab', gitlabUrl: 'https://gitlab.example.com' },
+    )
 
-  const screen = await render(
-    <Reshaped theme="slate" defaultColorMode="dark">
-      <div
-        data-testid="shell"
-        style={{ width: `${SHELL_WIDTH_PX}px`, height: `${SHELL_HEIGHT_PX}px` }}
-      >
-        <App />
-      </div>
-    </Reshaped>,
-  )
+    const screen = await render(
+      <Reshaped theme="slate" defaultColorMode={mode}>
+        <div
+          data-testid="shell"
+          style={{ width: `${SHELL_WIDTH_PX}px`, height: `${SHELL_HEIGHT_PX}px` }}
+        >
+          <App />
+        </div>
+      </Reshaped>,
+    )
 
-  await expect
-    .element(screen.getByText('Connected as @group_42_bot.', { exact: false }))
-    .toBeVisible()
-  await expect.element(screen.getByTestId('shell')).toMatchScreenshot('gitlab-no-mrs-dark')
-})
+    await expect.element(screen.getByText('Connected as @devuser.', { exact: false })).toBeVisible()
+    await expect.element(screen.getByTestId('shell')).toMatchScreenshot(`gitlab-no-mrs-${mode}`)
+  })
+
+  test(`GitLab inbox groups review requests, authored MRs and mentions (${mode})`, async () => {
+    document.documentElement.setAttribute('data-rs-color-mode', mode)
+    const now = Date.now()
+    const mr = (id: number, repository: string, title: string) =>
+      makePullRequest({
+        id: `GL_${id}`,
+        provider: 'gitlab',
+        number: id,
+        repository,
+        title,
+        url: `https://gitlab.example.com/${repository}/-/merge_requests/${id}`,
+        authorAvatarUrl: AVATAR_SRC,
+        updatedAt: new Date(now - HOUR_MS).toISOString(),
+      })
+    const snapshot: InboxSnapshot = {
+      ...inboxZero(now),
+      items: [
+        makeItem({
+          pr: mr(42, 'acme/web', 'Add keyboard navigation'),
+          category: 'needs-review',
+          reason: 'Review requested',
+          waitingSince: new Date(now - 3 * HOUR_MS).toISOString(),
+        }),
+        makeItem({
+          pr: mr(17, 'acme/api', 'Handle expired sessions'),
+          category: 'needs-review',
+          reason: 'Review requested',
+          waitingSince: new Date(now - 2 * HOUR_MS).toISOString(),
+        }),
+        makeItem({
+          pr: { ...mr(108, 'acme/web', 'Ship the new dashboard'), authorLogin: 'devuser' },
+          category: 'my-pr-action',
+          reason: 'Merge conflicts',
+          waitingSince: new Date(now - HOUR_MS).toISOString(),
+        }),
+        makeItem({
+          pr: mr(73, 'acme/mobile', 'Improve offline sync'),
+          category: 'mentioned',
+          reason: 'Mentioned in a comment',
+          waitingSince: new Date(now - 20 * 60_000).toISOString(),
+        }),
+      ],
+      attentionCount: 4,
+      myLogin: 'devuser',
+      knownRepositories: ['acme/web', 'acme/api', 'acme/mobile'],
+    }
+    stubApi(snapshot, 'comfortable', {
+      provider: 'gitlab',
+      gitlabUrl: 'https://gitlab.example.com',
+    })
+
+    const screen = await render(
+      <Reshaped theme="slate" defaultColorMode={mode}>
+        <div
+          data-testid="shell"
+          style={{ width: `${SHELL_WIDTH_PX}px`, height: `${SHELL_HEIGHT_PX}px` }}
+        >
+          <App />
+        </div>
+      </Reshaped>,
+    )
+
+    await expect.element(screen.getByText('Add keyboard navigation')).toBeVisible()
+    await expect.element(screen.getByText('Your MRs')).toBeVisible()
+    await expect.element(screen.getByText('Ship the new dashboard')).toBeVisible()
+    await expect.element(screen.getByTestId('shell')).toMatchScreenshot(`gitlab-inbox-${mode}`)
+  })
+}
 
 test('starts the new account at its first card and the top of the list', async () => {
   document.documentElement.setAttribute('data-rs-color-mode', 'light')
