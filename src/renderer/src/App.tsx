@@ -70,10 +70,25 @@ export default function App(): React.JSX.Element {
     const byCategory = new Map<Category, ClassifiedPullRequest[]>()
     for (const category of VISIBLE_CATEGORIES) {
       const items = snapshot.items.filter((item) => item.category === category)
+      if (settings?.sortOrder === 'activity') {
+        items.sort((a, b) => b.pr.updatedAt.localeCompare(a.pr.updatedAt))
+      } else if (settings?.sortOrder === 'comment') {
+        const latestComment = (item: ClassifiedPullRequest): string => {
+          const comments = [
+            ...item.pr.conversationComments,
+            ...item.pr.reviewThreads.flatMap((thread) => thread.comments),
+          ]
+          return comments.reduce(
+            (latest, comment) => (comment.createdAt > latest ? comment.createdAt : latest),
+            item.pr.createdAt,
+          )
+        }
+        items.sort((a, b) => latestComment(b).localeCompare(latestComment(a)))
+      }
       byCategory.set(category, orderSection(items))
     }
     return byCategory
-  }, [snapshot.items])
+  }, [snapshot.items, settings?.sortOrder])
 
   // The order the keyboard cursor travels: visual order, skipping collapsed sections.
   const visibleItems = useMemo(() => {

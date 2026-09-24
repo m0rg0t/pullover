@@ -180,6 +180,7 @@ export const SHORTCUT_OPTIONS: { value: string; label: string }[] = [
 ]
 
 export type Layout = 'comfortable' | 'compact'
+export type SortOrder = 'waiting' | 'activity' | 'comment'
 
 /** The picker's options, and the allowlist `store` validates the persisted
     setting against — a value outside this list falls back to the default. */
@@ -198,6 +199,7 @@ export interface RepositoryFilter {
 export interface Settings {
   provider: Provider
   gitlabUrl: string
+  sortOrder: SortOrder
   pollIntervalMinutes: number
   repositories: string[]
   /** When true, search every repo the user is involved in and ignore `repositories`. */
@@ -219,6 +221,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   provider: 'github',
   gitlabUrl: '',
+  sortOrder: 'waiting',
   pollIntervalMinutes: 5,
   repositories: [],
   watchAllRepositories: true,

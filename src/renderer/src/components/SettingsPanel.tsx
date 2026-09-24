@@ -1,6 +1,12 @@
 import { repositorySummary } from '@core/repo-filter'
 import type { McpStatus } from '@shared/ipc'
-import { LAYOUT_OPTIONS, type Layout, SHORTCUT_OPTIONS, type ThemePreference } from '@shared/types'
+import {
+  LAYOUT_OPTIONS,
+  type Layout,
+  SHORTCUT_OPTIONS,
+  type SortOrder,
+  type ThemePreference,
+} from '@shared/types'
 import { Heart, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Avatar, Button, Link, ScrollArea, Switch, Text, View } from 'reshaped/bundle'
@@ -31,6 +37,11 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 ]
 
 const SHORTCUT_PICKER_OPTIONS = [{ value: 'off', label: 'Off' }, ...SHORTCUT_OPTIONS]
+const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
+  { value: 'waiting', label: 'Waiting' },
+  { value: 'activity', label: 'Activity' },
+  { value: 'comment', label: 'Comments' },
+]
 const ACCOUNT_OPTIONS = [
   { value: 'gitlab', label: 'GitLab' },
   { value: 'github', label: 'GitHub' },
@@ -129,6 +140,15 @@ export default function SettingsPanel({
             </SettingsGroup>
 
             <SettingsGroup>
+              <SettingRow label="Sort by" description="Within each attention section">
+                <SegmentedPicker
+                  value={settings.sortOrder}
+                  options={SORT_OPTIONS}
+                  onChange={(value) =>
+                    void window.api.setSettings({ sortOrder: value as SortOrder })
+                  }
+                />
+              </SettingRow>
               <SettingRow label="Refresh every">
                 <SegmentedPicker
                   value={String(settings.pollIntervalMinutes)}
