@@ -181,6 +181,23 @@ describe('Inbox.refresh', () => {
     expect(snapshot.errorMessage).toBe("status-im hasn't approved Pullover")
   })
 
+  it('warns that a successful but capped search may omit older pull requests', async () => {
+    const fetchPrs = vi.fn(async () => ({
+      prs: [],
+      restrictedOrgs: [],
+      incompleteReasons: ['page-limit'] as const,
+    }))
+    const inbox = build([], { fetchPrs })
+
+    await inbox.refresh()
+
+    expect(inbox.getSnapshot()).toMatchObject({
+      status: 'ready',
+      attentionCount: 0,
+      errorMessage: 'GitHub search capped; older PRs may be missing',
+    })
+  })
+
   it('classifies fetched PRs and counts the ones needing attention', async () => {
     const inbox = build([
       makePullRequest({ id: 'PR_1', buckets: ['review-requested'] }),
