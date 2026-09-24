@@ -47,6 +47,9 @@ function panel(
 }
 
 visualCase('default', () => panel())
+visualCase('gitlab-account', () =>
+  panel({ provider: 'gitlab', gitlabUrl: 'https://gitlab.example.com' }, { myLogin: 'devuser' }),
+)
 
 // Watching named repositories rather than all of them opens the list.
 visualCase('repositories-picked', () =>
