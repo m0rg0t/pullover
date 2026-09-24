@@ -38,7 +38,7 @@ describe('GitLab merge request inbox', () => {
       },
       async list<T>(path: string, params: Record<string, string> = {}): Promise<T[]> {
         if (path === '/merge_requests') {
-          return (params.scope === 'reviews_for_me' ? [review] : [own]) as T[]
+          return (params.reviewer_id === String(viewer.id) ? [review] : [own]) as T[]
         }
         if (path === '/todos') {
           return [
@@ -182,7 +182,7 @@ describe('GitLab merge request inbox', () => {
       },
       async list<T>(path: string, params: Record<string, string> = {}): Promise<T[]> {
         if (path === '/merge_requests') {
-          return (params.scope === 'reviews_for_me' ? [review] : []) as T[]
+          return (params.reviewer_id === String(viewer.id) ? [review] : []) as T[]
         }
         if (path.endsWith('/discussions')) throw new GitLabHttpError(403)
         if (path.endsWith('/reviewers')) {
@@ -195,5 +195,47 @@ describe('GitLab merge request inbox', () => {
     const result = await fetchGitLabMergeRequests(client, viewer)
     expect(result).toHaveLength(1)
     expect(result[0]?.attentionOverride?.category).toBe('needs-review')
+  })
+
+  it('keeps overview comments separate from inline review threads', async () => {
+    const own = mr(30, viewer)
+    const client: GitLabClient = {
+      async get<T>(path: string): Promise<T> {
+        return (path.endsWith('/approvals') ? { approved_by: [] } : own) as T
+      },
+      async list<T>(path: string, params: Record<string, string> = {}): Promise<T[]> {
+        if (path === '/merge_requests')
+          return (params.scope === 'created_by_me' ? [own] : []) as T[]
+        if (path.endsWith('/discussions')) {
+          return [
+            {
+              id: 'overview',
+              notes: [
+                {
+                  id: 1,
+                  type: 'DiscussionNote',
+                  author: other,
+                  body: 'Overview note',
+                  created_at: at,
+                },
+              ],
+            },
+            {
+              id: 'inline',
+              notes: [
+                { id: 2, type: 'DiffNote', author: other, body: 'Inline note', created_at: at },
+              ],
+            },
+          ] as T[]
+        }
+        return []
+      },
+    }
+
+    const [result] = await fetchGitLabMergeRequests(client, viewer)
+    expect(result?.conversationComments.map((note) => note.bodyText)).toEqual(['Overview note'])
+    expect(
+      result?.reviewThreads.flatMap((thread) => thread.comments.map((note) => note.bodyText)),
+    ).toEqual(['Inline note'])
   })
 })

@@ -43,7 +43,8 @@ describe('GitLab HTTP integration', () => {
       let payload: unknown
       if (url.pathname === '/api/v4/user') payload = viewer
       else if (url.pathname === '/api/v4/merge_requests') {
-        payload = url.searchParams.get('scope') === 'reviews_for_me' ? [mr(10)] : [mr(11, viewer)]
+        payload =
+          url.searchParams.get('reviewer_id') === String(viewer.id) ? [mr(10)] : [mr(11, viewer)]
       } else if (url.pathname === '/api/v4/todos') {
         payload = [
           {
@@ -90,6 +91,12 @@ describe('GitLab HTTP integration', () => {
       'mentioned',
     ])
     expect(items.map((item) => item.number)).toEqual([10, 11, 12])
+    expect(requests).toContain(
+      'GET /api/v4/merge_requests?scope=all&reviewer_id=1&state=opened&per_page=100&page=1',
+    )
+    expect(
+      requests.filter((request) => request === 'GET /api/v4/projects/7/merge_requests/12'),
+    ).toHaveLength(1)
     expect(requests).toContain(
       'GET /api/v4/todos?state=pending&type=MergeRequest&per_page=100&page=1',
     )

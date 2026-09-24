@@ -1,6 +1,6 @@
 import type { DeviceCodePayload } from '@shared/ipc'
 import { ExternalLink, LogIn } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Text, View } from 'reshaped/bundle'
 import { useSettings } from '../useSettings'
 
@@ -17,18 +17,25 @@ export default function SignIn(): React.JSX.Element {
   const [code, setCode] = useState<DeviceCodePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const providerRef = useRef<'github' | 'gitlab' | null>(null)
+  const urlEditedRef = useRef(false)
+  const flowIdRef = useRef(0)
+  const githubFlowPendingRef = useRef(false)
 
   useEffect(
     () =>
       window.api.onDeviceCode((payload) => {
+        if (providerRef.current !== 'github' || !githubFlowPendingRef.current) return
         setCode(payload)
-        setProvider('github')
       }),
     [],
   )
   useEffect(() => {
-    if (settings?.gitlabUrl) setServerUrl(settings.gitlabUrl)
-    if (settings?.provider === 'gitlab') setProvider((current) => current ?? 'gitlab')
+    if (settings?.gitlabUrl && !urlEditedRef.current) setServerUrl(settings.gitlabUrl)
+    if (settings?.provider === 'gitlab' && providerRef.current === null) {
+      providerRef.current = 'gitlab'
+      setProvider('gitlab')
+    }
   }, [settings?.gitlabUrl, settings?.provider])
 
   useEffect(() => {
@@ -36,9 +43,13 @@ export default function SignIn(): React.JSX.Element {
   }, [])
 
   const chooseProvider = async (next: 'github' | 'gitlab'): Promise<void> => {
+    flowIdRef.current += 1
+    githubFlowPendingRef.current = false
+    providerRef.current = next
     setProvider(next)
     setCode(null)
     setError(null)
+    setBusy(false)
     try {
       await window.api.switchProvider(next)
     } catch (cause) {
@@ -47,36 +58,51 @@ export default function SignIn(): React.JSX.Element {
   }
 
   const startGitHub = async (): Promise<void> => {
+    const flowId = ++flowIdRef.current
+    githubFlowPendingRef.current = true
     setBusy(true)
     setError(null)
     try {
       await window.api.startAuth()
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-      setCode(null)
+      if (flowId === flowIdRef.current) {
+        setError(cause instanceof Error ? cause.message : String(cause))
+        setCode(null)
+      }
     } finally {
-      setBusy(false)
+      if (flowId === flowIdRef.current) {
+        githubFlowPendingRef.current = false
+        setBusy(false)
+      }
     }
   }
 
   const startGitLab = async (): Promise<void> => {
+    const flowId = ++flowIdRef.current
     setBusy(true)
     setError(null)
     try {
       await window.api.connectGitLab(serverUrl, token)
-      setToken('')
+      if (flowId === flowIdRef.current) setToken('')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      if (flowId === flowIdRef.current) {
+        setError(cause instanceof Error ? cause.message : String(cause))
+      }
     } finally {
-      setBusy(false)
+      if (flowId === flowIdRef.current) setBusy(false)
     }
   }
 
   const back = (): void => {
+    flowIdRef.current += 1
+    githubFlowPendingRef.current = false
+    providerRef.current = null
     setProvider(null)
     setCode(null)
     setToken('')
     setError(null)
+    setBusy(false)
+    void window.api.cancelAuth()
   }
 
   return (
@@ -118,7 +144,10 @@ export default function SignIn(): React.JSX.Element {
             aria-label="GitLab server URL"
             type="url"
             value={serverUrl}
-            onChange={(event) => setServerUrl(event.target.value)}
+            onChange={(event) => {
+              urlEditedRef.current = true
+              setServerUrl(event.target.value)
+            }}
             placeholder="https://gitlab.example.com"
           />
           <input
@@ -189,6 +218,9 @@ export default function SignIn(): React.JSX.Element {
             <Text variant="caption-1" color="neutral-faded">
               Waiting for you to approve…
             </Text>
+            <Button variant="ghost" onClick={back}>
+              Back
+            </Button>
           </>
         ))}
 

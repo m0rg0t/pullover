@@ -37,6 +37,7 @@ const api: RendererApi = {
   setTriggerMuted: (trigger: Trigger, muted: boolean) =>
     ipcRenderer.invoke(IPC.setTriggerMuted, trigger, muted),
   startAuth: () => ipcRenderer.invoke(IPC.startAuth),
+  cancelAuth: () => ipcRenderer.invoke(IPC.cancelAuth),
   connectGitLab: (serverUrl: string, token: string) =>
     ipcRenderer.invoke(IPC.connectGitLab, serverUrl, token),
   switchProvider: (provider: Settings['provider']) =>

@@ -6,6 +6,7 @@ afterEach(() => vi.unstubAllGlobals())
 describe('GitLab server URL', () => {
   it('accepts a self-hosted HTTPS address', () => {
     expect(normalizeGitLabUrl(' https://gitlab.example.com/ ')).toBe('https://gitlab.example.com')
+    expect(normalizeGitLabUrl('https://gitlab.example.com///')).toBe('https://gitlab.example.com')
   })
 
   it('rejects tokens in the address and insecure remote HTTP', () => {
@@ -24,6 +25,7 @@ describe('GitLab server URL', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
     const [firstUrl, firstOptions] = fetcher.mock.calls[0] as [URL, RequestInit]
     expect(firstUrl.searchParams.get('page')).toBe('1')
+    expect(firstUrl.searchParams.get('per_page')).toBe('100')
     expect(firstOptions.headers).toMatchObject({ 'PRIVATE-TOKEN': 'secret' })
     expect(firstOptions.method).toBeUndefined()
     expect(firstOptions.redirect).toBe('error')
