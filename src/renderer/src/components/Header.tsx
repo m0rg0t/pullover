@@ -11,6 +11,7 @@ interface Props {
   onRefresh: () => void
   onOpenSettings: () => void
   onInstallUpdate: () => void
+  noGitLabMrs?: boolean
 }
 
 /**
@@ -26,7 +27,7 @@ function statusText(snapshot: InboxSnapshot, now: string): string {
   if (snapshot.lastUpdatedAt === null) {
     return snapshot.errorMessage
   }
-  return `Updated ${formatAge(snapshot.lastUpdatedAt, now)} · ${snapshot.errorMessage}`
+  return `${snapshot.errorMessage} · last updated ${formatAge(snapshot.lastUpdatedAt, now)}`
 }
 
 // Button's size steps don't land on 32×32 with a 9px radius, so the box
@@ -47,6 +48,7 @@ export default function Header({
   onRefresh,
   onOpenSettings,
   onInstallUpdate,
+  noGitLabMrs = false,
 }: Props): React.JSX.Element {
   const updateReady = update.status === 'ready' && update.version !== null
   const updateLabel = `Restart to update to ${update.version}`
@@ -93,7 +95,9 @@ export default function Header({
               ? 'Partial inbox'
               : snapshot.attentionCount > 0
                 ? 'waiting on you'
-                : 'All clear'}
+                : noGitLabMrs
+                  ? 'No MRs found'
+                  : 'All clear'}
           </Text>
           <Text as="span" variant="caption-1" color="neutral-faded" maxLines={1}>
             {statusText(snapshot, now)}

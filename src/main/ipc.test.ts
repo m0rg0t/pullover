@@ -61,6 +61,7 @@ let send: ReturnType<typeof vi.fn>
 let hide: ReturnType<typeof vi.fn>
 let shortcutCalls: (string | null)[]
 let mcpApplied: boolean[]
+let switchedProviders: string[]
 
 beforeEach(() => {
   handlers.clear()
@@ -71,13 +72,22 @@ beforeEach(() => {
   hide = vi.fn()
   shortcutCalls = []
   mcpApplied = []
+  switchedProviders = []
   const inbox = new Inbox({ store, getClient: () => null, onChange: () => {} })
 
   registerIpc({
     inbox,
     store,
     getWindow: () => ({ webContents: { send }, hide }) as unknown as BrowserWindow,
-    signIn: async () => {},
+    signIn: async (onDeviceCode) => {
+      onDeviceCode({ userCode: 'ABCD-1234', verificationUri: 'https://github.com/login/device' })
+    },
+    connectGitLab: async () => {},
+    switchProvider: (provider) => {
+      store.switchProvider(provider)
+      switchedProviders.push(provider)
+    },
+    canUseGitHubDeviceFlow: () => false,
     signOut: () => {},
     restartPolling: () => {},
     getUpdate: () => ({ status: 'idle', version: null }),
@@ -103,6 +113,27 @@ function call(channel: string, ...args: never[]): unknown {
 }
 
 describe('settings push', () => {
+  it('routes provider changes through account switching', async () => {
+    await expect(call(IPC.setSettings, { provider: 'gitlab' } as never)).rejects.toThrow(
+      /account switching/,
+    )
+    expect(store.getSettings().provider).toBe('github')
+
+    call(IPC.switchProvider, 'gitlab' as never)
+    expect(switchedProviders).toEqual(['gitlab'])
+    expect(send).toHaveBeenCalledWith(IPC.settingsChanged, store.getSettings())
+  })
+
+  it('starts GitHub device sign-in and relays the code to the renderer', async () => {
+    await call(IPC.startAuth)
+    expect(send).toHaveBeenCalledWith(IPC.deviceCode, {
+      userCode: 'ABCD-1234',
+      verificationUri: 'https://github.com/login/device',
+    })
+    expect(send).toHaveBeenCalledWith(IPC.settingsChanged, store.getSettings())
+    expect(call(IPC.canUseGitHubDeviceFlow)).toBe(false)
+  })
+
   it('pushes the updated settings after setSettings', async () => {
     await call(IPC.setSettings, { pollIntervalMinutes: 15 } as never)
     expect(store.getSettings().pollIntervalMinutes).toBe(15)
@@ -149,7 +180,7 @@ describe('settings push', () => {
   })
 
   it('does not push when addRepository rejects an invalid name', () => {
-    expect(() => call(IPC.addRepository, 'nonsense' as never)).toThrow(/owner\/repo/)
+    expect(() => call(IPC.addRepository, 'nonsense' as never)).toThrow(/namespace\/repo/)
     expect(send).not.toHaveBeenCalled()
   })
 })
