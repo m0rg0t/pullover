@@ -621,6 +621,40 @@ describe('fetchPullRequests', () => {
     expect(result.restrictedOrgs.length).toBeGreaterThan(0)
   })
 
+  it('warns when a salvaged restricted search has more pages', async () => {
+    let round = 0
+    const client = vi.fn(async (query: string) => {
+      if (query === SEARCH_QUERY) {
+        round += 1
+        throw new GraphqlResponseError(
+          { method: 'POST', url: 'https://api.github.com/graphql' },
+          {},
+          {
+            data: {
+              search: {
+                nodes: [{ id: 'PR_1' }],
+                pageInfo: { hasNextPage: true, endCursor: 'next-page' },
+              },
+            },
+            errors: [
+              {
+                message: `the \`org-${round}\` organization has enabled OAuth App access restrictions`,
+              },
+            ],
+          } as never,
+        )
+      }
+      if (query === DETAILS_QUERY) return { nodes: [detailNode('PR_1')] }
+      throw new Error(`unexpected query: ${query}`)
+    })
+
+    const result = await fetchPullRequests(client, 'vlad')
+
+    expect(result.prs.map((pr) => pr.id)).toEqual(['PR_1'])
+    expect(result.restrictedOrgs.length).toBeGreaterThan(0)
+    expect(result.incompleteReasons).toEqual(['pagination'])
+  })
+
   it('recovers a restriction that only shows up on a detail batch second try', async () => {
     // Eleven ids split into ten and one. The singleton fails transiently, and
     // the retry is the request that hits the restriction — the one path where
