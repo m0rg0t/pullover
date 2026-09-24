@@ -25,6 +25,7 @@ export interface IpcDeps {
   store: AppStore
   getWindow: () => BrowserWindow | null
   signIn: (onDeviceCode: (payload: DeviceCodePayload) => void) => Promise<void>
+  cancelSignIn: () => void
   connectGitLab: (serverUrl: string, token: string) => Promise<void>
   switchProvider: (provider: Settings['provider']) => void
   canUseGitHubDeviceFlow: () => boolean
@@ -158,6 +159,8 @@ export function registerIpc(deps: IpcDeps): void {
     })
     pushSettings()
   })
+
+  ipcMain.handle(IPC.cancelAuth, () => deps.cancelSignIn())
 
   ipcMain.handle(IPC.canUseGitHubDeviceFlow, () => deps.canUseGitHubDeviceFlow())
 

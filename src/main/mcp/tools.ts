@@ -27,7 +27,7 @@ function toolError(message: string): CallToolResult {
 
 const GET_INBOX_TOOL_DESCRIPTION = `Pullover: the open merge requests or pull requests waiting on the user, grouped into sections by why they are waiting. Call it when the user asks what needs their attention on GitLab or GitHub, what to review next, or whether anything is blocked on them.
 
-Each section is longest-waiting first — except "waiting", which has nobody waiting and is ordered by latest activity. Pullover refreshes from the selected provider when its last fetch is over a minute old, so the list is current as of lastUpdatedAt. When notice is not null, the list is not the whole answer — signed out, a fetch that failed, a first one still running, or missing access to an organization — so relay the notice to the user.
+Each section is longest-waiting first — except "waiting", which has nobody waiting and is ordered by latest activity. Pullover refreshes from the selected provider when its last fetch is over a minute old, so the list is current as of lastUpdatedAt. When notice is not null, the list is not the whole answer — signed out, a fetch that failed, a first one still running, or a restricted GitHub organization whose pull requests are missing from an otherwise current list — so relay the notice to the user.
 
 Categories, in the order the app shows them:
 - needs-review: somebody asked the user for review and they have not reviewed yet.

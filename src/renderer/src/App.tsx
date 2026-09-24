@@ -45,7 +45,7 @@ export default function App(): React.JSX.Element {
   const snapshot = useSnapshot()
   const settings = useSettings()
   const update = useUpdate()
-  const account = settings?.provider ?? null
+  const account = settings?.provider ? `${settings.provider}:${snapshot.accountVersion ?? 0}` : null
   const scroll = useScrollMemory(account)
   const [showSettings, setShowSettings] = useState(false)
   const [now, setNow] = useState(() => new Date().toISOString())
@@ -167,7 +167,9 @@ export default function App(): React.JSX.Element {
 
   const showEmptyState = snapshot.attentionCount === 0
   const noGitLabMrs =
-    settings?.provider === 'gitlab' && snapshot.status === 'ready' && snapshot.items.length === 0
+    settings?.provider === 'gitlab' &&
+    snapshot.status === 'ready' &&
+    snapshot.knownRepositories.length === 0
 
   // The sections the list actually holds — `InboxSection` draws nothing for
   // an empty category. Needed here rather than left to each section because

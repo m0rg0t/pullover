@@ -7,6 +7,8 @@ export interface InboxSnapshot {
   lastUpdatedAt: string | null
   errorMessage: string | null
   myLogin: string | null
+  /** Changes whenever the active account is reset, including a reconnect to the same provider. */
+  accountVersion?: number
   /** Repositories seen in the fetched pull requests, for the settings picker. */
   knownRepositories: string[]
 }
@@ -63,6 +65,7 @@ export const IPC = {
   addRepository: 'settings:add-repository',
   removeRepository: 'settings:remove-repository',
   startAuth: 'auth:start',
+  cancelAuth: 'auth:cancel',
   connectGitLab: 'auth:connect-gitlab',
   switchProvider: 'auth:switch-provider',
   canUseGitHubDeviceFlow: 'auth:github-device-flow-available',
@@ -94,6 +97,7 @@ export interface RendererApi {
   addRepository: (fullName: string) => Promise<void>
   removeRepository: (fullName: string) => Promise<void>
   startAuth: () => Promise<void>
+  cancelAuth: () => Promise<void>
   connectGitLab: (serverUrl: string, token: string) => Promise<void>
   switchProvider: (provider: Settings['provider']) => Promise<void>
   canUseGitHubDeviceFlow: () => Promise<boolean>

@@ -671,6 +671,28 @@ describe('Inbox.refresh', () => {
     expect(inbox.getSnapshot().items.map((item) => item.pr.id)).toEqual(['new'])
   })
 
+  it('does not reuse a login fetched before an account reset', async () => {
+    const oldLogin = deferred<string>()
+    const fetchLogin = vi
+      .fn()
+      .mockReturnValueOnce(oldLogin.promise)
+      .mockResolvedValueOnce('new-user')
+    const fetchPrs = vi.fn(async () => fetched([]))
+    const inbox = build([], { fetchLogin, fetchPrs })
+
+    const first = inbox.refresh()
+    await vi.waitFor(() => expect(fetchLogin).toHaveBeenCalledTimes(1))
+    inbox.reset(true)
+    oldLogin.resolve('old-user')
+    await first
+    await inbox.refresh()
+
+    expect(fetchLogin).toHaveBeenCalledTimes(2)
+    expect(fetchPrs).toHaveBeenCalledWith(CLIENT, 'new-user')
+    expect(inbox.getSnapshot().myLogin).toBe('new-user')
+    expect(inbox.getSnapshot().accountVersion).toBe(1)
+  })
+
   it('does not let a hung pass for the previous account block the next one', async () => {
     const hung = new Promise<FetchedPullRequests>(() => {})
     const fetchPrs = vi

@@ -146,6 +146,26 @@ describe('Accounts', () => {
     expect(flow.present).not.toHaveBeenCalled()
   })
 
+  it('cancels a pending GitHub sign-in when the user goes back', async () => {
+    const code = deferred<DeviceCodeInfo>()
+    const flow: DeviceFlow = {
+      requestCode: vi.fn((signal) => {
+        signal.addEventListener('abort', () => code.reject(signal.reason))
+        return code.promise
+      }),
+      present: vi.fn(),
+      pollForToken: vi.fn(async () => 'github-token'),
+    }
+    const accounts = build(flow)
+
+    const pending = accounts.signIn(() => {})
+    accounts.cancelSignIn()
+
+    await expect(pending).rejects.toThrow('GitHub sign-in was cancelled')
+    expect(tokens.has('github')).toBe(false)
+    expect(flow.present).not.toHaveBeenCalled()
+  })
+
   it('stops a device-code sign-in a switch cancels, and lets the next one show a fresh code', async () => {
     const polls: AbortSignal[] = []
     const approved = deferred<string>()

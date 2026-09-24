@@ -36,7 +36,7 @@ export function normalizeGitLabUrl(input: string): string {
   if (url.username || url.password || url.search || url.hash) {
     throw new Error('GitLab URL must contain only the server address')
   }
-  return url.href.replace(/\/$/, '')
+  return url.href.replace(/\/+$/, '')
 }
 
 export function createGitLabClient(serverUrl: string, token: string): GitLabClient {

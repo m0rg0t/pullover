@@ -46,6 +46,22 @@ describe('requestDeviceCode', () => {
       /unauthorized_client/,
     )
   })
+
+  it('aborts the initial device-code request when sign-in is cancelled', async () => {
+    const controller = new AbortController()
+    const fetchFn = vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+        }),
+    )
+    const request = requestDeviceCode('client-123', fetchFn, controller.signal)
+
+    controller.abort(new Error('Sign-in was cancelled'))
+
+    await expect(request).rejects.toThrow('Sign-in was cancelled')
+    expect(fetchFn.mock.calls[0]?.[1]?.signal).toBe(controller.signal)
+  })
 })
 
 describe('pollForToken', () => {

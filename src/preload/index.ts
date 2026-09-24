@@ -35,6 +35,7 @@ const api: RendererApi = {
   addRepository: (fullName: string) => ipcRenderer.invoke(IPC.addRepository, fullName),
   removeRepository: (fullName: string) => ipcRenderer.invoke(IPC.removeRepository, fullName),
   startAuth: () => ipcRenderer.invoke(IPC.startAuth),
+  cancelAuth: () => ipcRenderer.invoke(IPC.cancelAuth),
   connectGitLab: (serverUrl: string, token: string) =>
     ipcRenderer.invoke(IPC.connectGitLab, serverUrl, token),
   switchProvider: (provider: Settings['provider']) =>

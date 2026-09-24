@@ -12,7 +12,7 @@ export interface TokenStorage {
 }
 
 export interface DeviceFlow {
-  requestCode: () => Promise<DeviceCodeInfo>
+  requestCode: (signal: AbortSignal) => Promise<DeviceCodeInfo>
   pollForToken: (info: DeviceCodeInfo, signal: AbortSignal) => Promise<string>
   /** Hands the code to the user — clipboard, browser — once it is known. */
   present: (info: DeviceCodeInfo) => void | Promise<void>
@@ -127,6 +127,10 @@ export class Accounts {
     this.restartInbox()
   }
 
+  cancelSignIn(): void {
+    this.cancelAttempt()
+  }
+
   /**
    * A refresh found this account's token dead. Ignored unless that account is
    * still the active one, and leaves any sign-in in progress alone — a dead
@@ -151,7 +155,10 @@ export class Accounts {
   ): Promise<void> {
     const flow = this.deps.deviceFlow
     if (flow === null) throw new Error('MAIN_VITE_GITHUB_CLIENT_ID is not set — fill in your .env')
-    const info = await flow.requestCode()
+    const info = await flow.requestCode(signal).catch((error: unknown) => {
+      this.throwIfCancelled(signal, 'github')
+      throw error
+    })
     this.throwIfCancelled(signal, 'github')
     onDeviceCode({ userCode: info.userCode, verificationUri: info.verificationUri })
     await flow.present(info)

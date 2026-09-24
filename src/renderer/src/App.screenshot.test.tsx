@@ -211,6 +211,30 @@ for (const mode of COLOR_MODES) {
   })
 }
 
+test('a repository filter hiding GitLab MRs does not suggest reconnecting the token', async () => {
+  document.documentElement.setAttribute('data-rs-color-mode', 'light')
+  stubApi(
+    {
+      ...inboxZero(Date.now()),
+      items: [],
+      myLogin: 'devuser',
+      knownRepositories: ['acme/web'],
+    },
+    'comfortable',
+    { provider: 'gitlab', gitlabUrl: 'https://gitlab.example.com' },
+  )
+  const screen = await render(
+    <Reshaped theme="slate" defaultColorMode="light">
+      <div style={{ width: `${SHELL_WIDTH_PX}px`, height: `${SHELL_HEIGHT_PX}px` }}>
+        <App />
+      </div>
+    </Reshaped>,
+  )
+
+  await expect.element(screen.getByText('Inbox zero')).toBeVisible()
+  await expect.element(screen.getByText('No MRs found')).not.toBeInTheDocument()
+})
+
 test('starts the new account at its first card and the top of the list', async () => {
   document.documentElement.setAttribute('data-rs-color-mode', 'light')
   const now = Date.now()
@@ -287,5 +311,27 @@ test('starts the new account at its first card and the top of the list', async (
 
   await expect.element(screen.getByText('GitLab change 0')).toBeVisible()
   await expect.poll(() => document.activeElement?.textContent ?? '').toContain('GitLab change 0')
+  expect(scroller().scrollTop).toBe(0)
+
+  for (let step = 1; step <= 8; step++) {
+    press('ArrowDown')
+    await expect
+      .poll(() => document.activeElement?.textContent ?? '')
+      .toContain(`GitLab change ${step}`)
+  }
+  scroller().scrollTop = 400
+  scroller().dispatchEvent(new Event('scroll'))
+
+  pushSnapshot({
+    ...inbox('GL2', 'Next GitLab change'),
+    accountVersion: 2,
+    status: 'loading',
+    items: [],
+  })
+  pushSnapshot({ ...inbox('GL2', 'Next GitLab change'), accountVersion: 2 })
+  await expect.element(screen.getByText('Next GitLab change 0')).toBeVisible()
+  await expect
+    .poll(() => document.activeElement?.textContent ?? '')
+    .toContain('Next GitLab change 0')
   expect(scroller().scrollTop).toBe(0)
 })

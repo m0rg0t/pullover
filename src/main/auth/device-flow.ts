@@ -60,11 +60,13 @@ function describeError(error: string, description?: string): string {
 export async function requestDeviceCode(
   clientId: string,
   fetchFn: typeof fetch = fetch,
+  signal?: AbortSignal,
 ): Promise<DeviceCodeInfo> {
   const data = await postJson<DeviceCodeResponse>(
     DEVICE_CODE_URL,
     { client_id: clientId, scope: GITHUB_SCOPES },
     fetchFn,
+    signal,
   )
 
   if (data.error !== undefined) {

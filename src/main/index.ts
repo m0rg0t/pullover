@@ -53,7 +53,7 @@ const accounts = new Accounts({
   verifyGitLab: fetchGitLabViewer,
   deviceFlow: CLIENT_ID
     ? {
-        requestCode: () => requestDeviceCode(CLIENT_ID),
+        requestCode: (signal) => requestDeviceCode(CLIENT_ID, fetch, signal),
         pollForToken: (info, signal) => pollForToken(CLIENT_ID, info, { signal }),
         present: async (info) => {
           // The user has to type the code, so hand it to them via the clipboard too.
@@ -119,6 +119,7 @@ void app.whenReady().then(() => {
     store,
     getWindow: () => window,
     signIn: (onDeviceCode) => accounts.signIn(onDeviceCode),
+    cancelSignIn: () => accounts.cancelSignIn(),
     connectGitLab: (serverUrl, token) => accounts.connectGitLab(serverUrl, token),
     switchProvider: (provider) => accounts.switchProvider(provider),
     canUseGitHubDeviceFlow: () => Boolean(CLIENT_ID),

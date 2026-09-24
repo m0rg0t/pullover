@@ -57,6 +57,7 @@ export class Inbox {
     lastUpdatedAt: null,
     errorMessage: null,
     myLogin: null,
+    accountVersion: 0,
     knownRepositories: [],
   }
 
@@ -107,6 +108,7 @@ export class Inbox {
       lastUpdatedAt: null,
       errorMessage: null,
       myLogin: null,
+      accountVersion: this.generation,
       knownRepositories: [],
     })
   }
@@ -265,10 +267,10 @@ export class Inbox {
     try {
       const viewer = gitlab ? await fetchGitLabViewer(client as GitLabClient) : null
       if (generation !== this.generation) return
-      if (viewer !== null) this.myLogin = viewer.username
-      else this.myLogin ??= await this.fetchLogin(client as GraphQLClient)
+      const myLogin =
+        viewer?.username ?? this.myLogin ?? (await this.fetchLogin(client as GraphQLClient))
       if (generation !== this.generation) return
-      const myLogin = this.myLogin
+      this.myLogin = myLogin
       // Always fetch unfiltered: the picker's options come from what shows
       // up in the inbox, so the search itself must never be narrowed by the
       // repository selection.

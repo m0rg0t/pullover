@@ -62,6 +62,7 @@ let hide: ReturnType<typeof vi.fn>
 let shortcutCalls: (string | null)[]
 let mcpApplied: boolean[]
 let switchedProviders: string[]
+let cancelSignIn: () => void
 
 beforeEach(() => {
   handlers.clear()
@@ -73,6 +74,7 @@ beforeEach(() => {
   shortcutCalls = []
   mcpApplied = []
   switchedProviders = []
+  cancelSignIn = vi.fn()
   const inbox = new Inbox({ store, getClient: () => null, onChange: () => {} })
 
   registerIpc({
@@ -82,6 +84,7 @@ beforeEach(() => {
     signIn: async (onDeviceCode) => {
       onDeviceCode({ userCode: 'ABCD-1234', verificationUri: 'https://github.com/login/device' })
     },
+    cancelSignIn,
     connectGitLab: async () => {},
     switchProvider: (provider) => {
       store.switchProvider(provider)
@@ -118,6 +121,7 @@ describe('settings push', () => {
       /account switching/,
     )
     expect(store.getSettings().provider).toBe('github')
+    expect(send).not.toHaveBeenCalled()
 
     call(IPC.switchProvider, 'gitlab' as never)
     expect(switchedProviders).toEqual(['gitlab'])
@@ -132,6 +136,11 @@ describe('settings push', () => {
     })
     expect(send).toHaveBeenCalledWith(IPC.settingsChanged, store.getSettings())
     expect(call(IPC.canUseGitHubDeviceFlow)).toBe(false)
+  })
+
+  it('cancels a device sign-in when the renderer goes back', () => {
+    call(IPC.cancelAuth)
+    expect(cancelSignIn).toHaveBeenCalledOnce()
   })
 
   it('pushes the updated settings after setSettings', async () => {

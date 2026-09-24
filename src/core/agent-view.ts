@@ -72,7 +72,7 @@ export function describePullRequest(item: ClassifiedPullRequest): AgentPullReque
 function noticeFor(snapshot: InboxSnapshot): string | null {
   switch (snapshot.status) {
     case 'signed-out':
-      return 'Pullover is signed out. Sign in from its menu-bar window to see merge requests.'
+      return 'Pullover is signed out. Sign in from its menu-bar window to see requests.'
     case 'error':
       return snapshot.errorMessage
     case 'loading':

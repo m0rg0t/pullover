@@ -106,7 +106,7 @@ export default function SettingsPanel({
         <ScrollArea scrollableClassName="pv-settings-scroll">
           <View paddingBlock={3} paddingInline={3} gap={3}>
             <SettingsGroup>
-              <SettingRow label="Account" description="Switch inboxes without signing out">
+              <SettingRow label="Account" description="Switch inboxes or connect another account">
                 <SegmentedPicker
                   value={settings.provider}
                   options={ACCOUNT_OPTIONS}

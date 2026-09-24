@@ -42,6 +42,8 @@ interface GitLabNote {
   system?: boolean
   resolved?: boolean
   resolvable?: boolean
+  type?: 'DiscussionNote' | 'DiffNote' | null
+  position?: unknown
 }
 
 interface GitLabDiscussion {
@@ -123,7 +125,11 @@ export async function fetchGitLabMergeRequests(
   viewer: GitLabUser,
 ): Promise<PullRequest[]> {
   const [reviewMrs, ownMrs, todos] = await Promise.all([
-    client.list<GitLabMr>('/merge_requests', { scope: 'reviews_for_me', state: 'opened' }),
+    client.list<GitLabMr>('/merge_requests', {
+      scope: 'all',
+      reviewer_id: String(viewer.id),
+      state: 'opened',
+    }),
     client.list<GitLabMr>('/merge_requests', { scope: 'created_by_me', state: 'opened' }),
     client.list<GitLabTodo>('/todos', { state: 'pending', type: 'MergeRequest' }),
   ])
@@ -142,15 +148,23 @@ export async function fetchGitLabMergeRequests(
       (target): target is NonNullable<GitLabTodo['target']> =>
         target !== undefined && !byId.has(target.id),
     )
-  for (const target of missing) {
-    try {
-      const mr = await client.get<GitLabMr>(
-        `/projects/${target.project_id}/merge_requests/${target.iid}`,
-      )
-      if (mr.id === target.id && mr.web_url) byId.set(mr.id, mr)
-    } catch (error) {
-      if (!inaccessibleMr(error)) throw error
-    }
+  const prefetched = new Map<number, GitLabMr>()
+  for (let index = 0; index < missing.length; index += 5) {
+    await Promise.all(
+      missing.slice(index, index + 5).map(async (target) => {
+        try {
+          const mr = await client.get<GitLabMr>(
+            `/projects/${target.project_id}/merge_requests/${target.iid}`,
+          )
+          if (mr.id === target.id && mr.web_url) {
+            byId.set(mr.id, mr)
+            prefetched.set(mr.id, mr)
+          }
+        } catch (error) {
+          if (!inaccessibleMr(error)) throw error
+        }
+      }),
+    )
   }
 
   const reviewIds = new Set(reviewMrs.map((mr) => mr.id))
@@ -158,7 +172,7 @@ export async function fetchGitLabMergeRequests(
     const base = `/projects/${listed.project_id}/merge_requests/${listed.iid}`
     let mr: GitLabMr
     try {
-      mr = await client.get<GitLabMr>(base)
+      mr = prefetched.get(listed.id) ?? (await client.get<GitLabMr>(base))
     } catch (error) {
       if (inaccessibleMr(error)) return null
       throw error
@@ -181,14 +195,18 @@ export async function fetchGitLabMergeRequests(
     const mrTodos = todosById.get(mr.id) ?? []
     const mention = newestTodo(mrTodos, (todo) => todo.action_name === 'mentioned')
     const anyTodo = newestTodo(mrTodos, () => true)
-    const comments = discussions.flatMap(humanNotes)
+    const isDiffDiscussion = (discussion: GitLabDiscussion): boolean =>
+      discussion.notes.some((note) => note.type === 'DiffNote' || note.position != null)
+    const comments = discussions
+      .filter((discussion) => !isDiffDiscussion(discussion))
+      .flatMap(humanNotes)
     const unansweredComment = discussions
       .filter((discussion) => !discussion.notes.some((note) => note.resolvable && note.resolved))
       .map((discussion) => humanNotes(discussion).at(-1))
       .filter((note): note is GitLabNote => note !== undefined && note.author.id !== viewer.id)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))[0]
     const threads: ReviewThread[] = discussions
-      .filter((discussion) => humanNotes(discussion).length > 0)
+      .filter((discussion) => isDiffDiscussion(discussion) && humanNotes(discussion).length > 0)
       .map((discussion) => ({
         id: discussion.id,
         isResolved: discussion.notes.some((note) => note.resolvable && note.resolved),
