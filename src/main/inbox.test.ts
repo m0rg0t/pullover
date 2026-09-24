@@ -181,11 +181,15 @@ describe('Inbox.refresh', () => {
     expect(snapshot.errorMessage).toBe("status-im hasn't approved Pullover")
   })
 
-  it('warns that a successful but capped search may omit older pull requests', async () => {
+  it.each([
+    ['page-limit', 'GitHub search capped; older PRs may be missing'],
+    ['rate-limit', 'GitHub quota low; some PRs may be missing'],
+    ['pagination', 'GitHub search interrupted; some PRs may be missing'],
+  ] as const)('keeps the inbox ready and reports %s', async (reason, warning) => {
     const fetchPrs = vi.fn(async () => ({
       prs: [],
       restrictedOrgs: [],
-      incompleteReasons: ['page-limit'] as const,
+      incompleteReasons: [reason],
     }))
     const inbox = build([], { fetchPrs })
 
@@ -194,7 +198,7 @@ describe('Inbox.refresh', () => {
     expect(inbox.getSnapshot()).toMatchObject({
       status: 'ready',
       attentionCount: 0,
-      errorMessage: 'GitHub search capped; older PRs may be missing',
+      errorMessage: warning,
     })
   })
 
