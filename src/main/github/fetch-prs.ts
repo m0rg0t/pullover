@@ -233,7 +233,7 @@ async function searchBucket(
   return {
     ids: [...found, ...idsFromSearch(salvaged.nodes)],
     restrictedOrgs: excluded,
-    incompleteReasons: [],
+    incompleteReasons: salvaged.pageInfo?.hasNextPage ? ['pagination'] : [],
   }
 }
 
