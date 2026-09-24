@@ -37,6 +37,11 @@ const api: RendererApi = {
   setTriggerMuted: (trigger: Trigger, muted: boolean) =>
     ipcRenderer.invoke(IPC.setTriggerMuted, trigger, muted),
   startAuth: () => ipcRenderer.invoke(IPC.startAuth),
+  connectGitLab: (serverUrl: string, token: string) =>
+    ipcRenderer.invoke(IPC.connectGitLab, serverUrl, token),
+  switchProvider: (provider: Settings['provider']) =>
+    ipcRenderer.invoke(IPC.switchProvider, provider),
+  canUseGitHubDeviceFlow: () => ipcRenderer.invoke(IPC.canUseGitHubDeviceFlow),
   signOut: () => ipcRenderer.invoke(IPC.signOut),
   hidePopup: () => ipcRenderer.invoke(IPC.hidePopup),
   getUpdate: () => ipcRenderer.invoke(IPC.getUpdate),

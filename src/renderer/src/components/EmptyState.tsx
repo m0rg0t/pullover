@@ -1,4 +1,4 @@
-import { Check, CloudOff, TriangleAlert } from 'lucide-react'
+import { Check, CloudOff, SearchX, TriangleAlert } from 'lucide-react'
 import { Icon, Text, View } from 'reshaped/bundle'
 
 const STATES = {
@@ -20,13 +20,20 @@ const STATES = {
     title: 'Partial inbox',
     hint: 'Some PRs may be missing from this list.',
   },
+  'no-mrs': {
+    icon: SearchX,
+    color: 'neutral-faded',
+    title: 'No MRs found',
+    hint: 'If you expected MRs, sign out in Settings and reconnect with your personal token.',
+  },
 } as const
 
 interface Props {
   kind: keyof typeof STATES
+  account?: string | null
 }
 
-export default function EmptyState({ kind }: Props): React.JSX.Element {
+export default function EmptyState({ kind, account = null }: Props): React.JSX.Element {
   const state = STATES[kind]
   return (
     // Grows into whatever room the list leaves, which is what pushes a
@@ -51,7 +58,7 @@ export default function EmptyState({ kind }: Props): React.JSX.Element {
 
       <View.Item gapBefore={0.75}>
         <Text as="div" variant="caption-1" color="neutral-faded">
-          {state.hint}
+          {account ? `Connected as @${account}. ${state.hint}` : state.hint}
         </Text>
       </View.Item>
     </View>

@@ -126,4 +126,20 @@ describe('pollForToken', () => {
 
     expect(fetchFn).toHaveBeenCalledTimes(1)
   })
+
+  it('stops waiting for approval as soon as the sign-in is cancelled', async () => {
+    const fetchFn = vi.fn<typeof fetch>(async () =>
+      jsonResponse({ error: 'authorization_pending' }),
+    )
+    const controller = new AbortController()
+
+    const polling = pollForToken('client-123', INFO, {
+      fetchFn: fetchFn as unknown as typeof fetch,
+      signal: controller.signal,
+    })
+    controller.abort(new Error('GitHub sign-in was cancelled'))
+
+    await expect(polling).rejects.toThrow(/cancelled/)
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
 })

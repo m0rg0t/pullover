@@ -95,12 +95,12 @@ http://127.0.0.1:7855/mcp
 | `snooze_pull_request` | Parks one for a number of hours, or until it wakes |
 | `unsnooze_pull_request` | Brings it back |
 
-**`get_inbox`** carries, for each pull request, the reason Pullover put it there, its CI state, its place in a stack, and its link. It refreshes from GitHub when the last fetch is over a minute old — the same rule the window uses — so an agent and a click see the same thing.
+**`get_inbox`** carries, for each pull or merge request, the reason Pullover put it there, its CI state, its place in a stack, and its link. It refreshes from the selected GitHub or GitLab account when the last fetch is over a minute old — the same rule the window uses — so an agent and a click see the same thing.
 
 **`snooze_pull_request`** without hours parks a pull request until it wakes on its own: a reply in a review thread you took part in, or a new commit. Finished work needs no snooze — once your reply lands on GitHub, Pullover reclassifies it by itself.
 
 > [!NOTE]
-> **Nothing an agent does through Pullover reaches GitHub.** It reads, and a snooze is a private note on your Mac that nobody else sees. To reply, approve or merge, an agent uses its own GitHub tooling, at the link Pullover gave it.
+> **Nothing an agent does through Pullover writes to GitHub or GitLab.** It reads, and a snooze is a private note on your Mac that nobody else sees. To reply, approve or merge, an agent uses its own provider tooling at the link Pullover gave it.
 
 ## 🔐 Local and private
 
