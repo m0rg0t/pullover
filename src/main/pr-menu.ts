@@ -42,6 +42,7 @@ export function prMenuEntries(
     SEPARATOR,
     { type: 'item', label: 'Copy link', action: 'copy-link' },
     { type: 'item', label: 'Copy branch name', action: 'copy-branch' },
+    { type: 'item', label: 'Copy review prompt', action: 'copy-review-prompt' },
     SEPARATOR,
     ...snooze,
   ]

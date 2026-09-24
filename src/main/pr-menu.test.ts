@@ -14,6 +14,7 @@ describe('prMenuEntries', () => {
       'Open files changed',
       'Copy link',
       'Copy branch name',
+      'Copy review prompt',
       'Snooze until new activity',
       'Snooze for 4 hours',
       'Snooze until tomorrow',
@@ -32,6 +33,7 @@ describe('prMenuEntries', () => {
       'Open files changed',
       'Copy link',
       'Copy branch name',
+      'Copy review prompt',
       'Unsnooze',
     ])
   })
@@ -42,6 +44,7 @@ describe('prMenuEntries', () => {
       'item',
       'item',
       'separator',
+      'item',
       'item',
       'item',
       'separator',

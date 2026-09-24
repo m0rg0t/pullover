@@ -1,3 +1,4 @@
+import { reviewPrompt } from '@core/review-prompt'
 import type { ClassifiedPullRequest } from '@shared/types'
 
 /** Where to pop the menu, in window coordinates. */
@@ -64,5 +65,10 @@ export async function showPrMenu(
     case 'copy-branch':
       await window.api.copyText(pr.headRefName)
       return
+    case 'copy-review-prompt': {
+      const settings = await window.api.getSettings()
+      await window.api.copyText(reviewPrompt(pr, settings.localRepoRoots))
+      return
+    }
   }
 }

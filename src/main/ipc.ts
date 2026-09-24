@@ -10,6 +10,7 @@ import {
   app,
   type BrowserWindow,
   clipboard,
+  dialog,
   ipcMain,
   Menu,
   type MenuItemConstructorOptions,
@@ -172,6 +173,11 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle(IPC.switchProvider, (_event, provider: Settings['provider']) => {
     deps.switchProvider(provider)
     pushSettings()
+  })
+
+  ipcMain.handle(IPC.chooseRepoRoots, async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'multiSelections'] })
+    return result.canceled ? [] : result.filePaths
   })
 
   ipcMain.handle(IPC.signOut, () => deps.signOut())

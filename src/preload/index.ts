@@ -40,6 +40,7 @@ const api: RendererApi = {
   switchProvider: (provider: Settings['provider']) =>
     ipcRenderer.invoke(IPC.switchProvider, provider),
   canUseGitHubDeviceFlow: () => ipcRenderer.invoke(IPC.canUseGitHubDeviceFlow),
+  chooseRepoRoots: () => ipcRenderer.invoke(IPC.chooseRepoRoots),
   signOut: () => ipcRenderer.invoke(IPC.signOut),
   hidePopup: () => ipcRenderer.invoke(IPC.hidePopup),
   getUpdate: () => ipcRenderer.invoke(IPC.getUpdate),

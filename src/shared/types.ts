@@ -198,6 +198,7 @@ export interface RepositoryFilter {
 export interface Settings {
   provider: Provider
   gitlabUrl: string
+  localRepoRoots: string[]
   pollIntervalMinutes: number
   repositories: string[]
   /** When true, search every repo the user is involved in and ignore `repositories`. */
@@ -219,6 +220,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   provider: 'github',
   gitlabUrl: '',
+  localRepoRoots: [],
   pollIntervalMinutes: 5,
   repositories: [],
   watchAllRepositories: true,

@@ -47,6 +47,9 @@ function panel(
 }
 
 visualCase('default', () => panel())
+visualCase('two-local-folders', () =>
+  panel({ localRepoRoots: ['/Projects', '/Work/repositories'] }),
+)
 
 // Watching named repositories rather than all of them opens the list.
 visualCase('repositories-picked', () =>
@@ -74,6 +77,24 @@ test('switches from GitLab to GitHub without signing out', async () => {
   window.api.switchProvider = switchProvider
   await screen.getByRole('tab', { name: 'GitHub' }).click()
   expect(switchProvider).toHaveBeenCalledWith('github')
+})
+
+test('adds multiple chosen repository roots in one selection', async () => {
+  const screen = await render(
+    <Reshaped theme="slate" defaultColorMode="light">
+      <div style={{ width: '440px', height: WINDOW_HEIGHT_PX }}>
+        {panel({ localRepoRoots: ['/Projects'] })}
+      </div>
+    </Reshaped>,
+  )
+  window.api.chooseRepoRoots = vi.fn(async () => ['/Projects', '/Work/repositories'])
+  const setSettings = vi.fn(async () => {})
+  window.api.setSettings = setSettings
+
+  await screen.getByRole('button', { name: 'Add folders' }).click()
+  expect(setSettings).toHaveBeenCalledWith({
+    localRepoRoots: ['/Projects', '/Work/repositories'],
+  })
 })
 
 test('aligns Sign out with the right edge of other settings controls', async () => {

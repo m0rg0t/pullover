@@ -53,6 +53,8 @@ Sign in with GitHub and you're done — out of the box Pullover watches every re
 
 For GitLab, choose **GitLab** at sign-in, enter your server URL and a personal access token with `read_api` scope. The token must belong to the account whose merge requests you want to see; group and project tokens identify separate bot accounts. [GitLab explains how to create a personal access token](https://docs.gitlab.com/user/profile/personal_access_tokens/). The app stores each provider's token separately, and **Settings → Account** switches between the two inboxes.
 
+To ask a local agent to review a request, add one or more **Local code folders** in Settings, then choose **Copy review prompt** from the request's menu. The prompt includes the request URL, branches and search folders, and asks the agent to match a local repository by its Git remote. If you have not configured a folder yet, it asks the agent to request one. Pullover itself only copies the text; it does not read local repositories or start an agent.
+
 <details>
 <summary><b>🛠️ Running from source</b></summary>
 

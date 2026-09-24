@@ -69,6 +69,14 @@ export default function SettingsPanel({
     setShortcutActive(await window.api.isShortcutActive())
   }
 
+  const addRepoRoots = async (): Promise<void> => {
+    const picked = await window.api.chooseRepoRoots()
+    if (picked.length === 0 || settings === null) return
+    await window.api.setSettings({
+      localRepoRoots: [...new Set([...settings.localRepoRoots, ...picked])],
+    })
+  }
+
   const switchAccount = async (provider: 'github' | 'gitlab'): Promise<void> => {
     setSwitchError(null)
     try {
@@ -126,6 +134,29 @@ export default function SettingsPanel({
                 value={summary}
                 onClick={() => setPane('repositories')}
               />
+            </SettingsGroup>
+
+            <SettingsGroup>
+              <SettingRow label="Local code folders" description="Used in copied review prompts">
+                <Button size="small" variant="outline" onClick={() => void addRepoRoots()}>
+                  Add folders
+                </Button>
+              </SettingRow>
+              {settings.localRepoRoots.map((root) => (
+                <SettingRow key={root} label={root}>
+                  <Button
+                    size="small"
+                    variant="ghost"
+                    onClick={() =>
+                      void window.api.setSettings({
+                        localRepoRoots: settings.localRepoRoots.filter((path) => path !== root),
+                      })
+                    }
+                  >
+                    Remove
+                  </Button>
+                </SettingRow>
+              ))}
             </SettingsGroup>
 
             <SettingsGroup>
