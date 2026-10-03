@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
@@ -63,6 +63,7 @@ export default defineConfig({
     `Expected a visual mismatch: ${mismatch.stdout}\n${mismatch.stderr}`,
   )
 
+  await copyFile(baseline, join(artifacts, 'smoke-reference.png'))
   const manifest = {}
   for (const kind of ['reference', 'actual', 'diff']) {
     const name = `smoke-${kind}.png`
