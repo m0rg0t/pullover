@@ -61,12 +61,12 @@ function screenshotBrowser(
 
 export default defineConfig({
   test: {
+    attachmentsDir,
     projects: [
       {
         resolve: { alias },
         test: {
           name: 'unit',
-          attachmentsDir,
           environment: 'node',
           include: ['src/**/*.test.ts'],
         },
@@ -81,7 +81,6 @@ export default defineConfig({
         define: { __APP_VERSION__: JSON.stringify('0.0.0-test') },
         test: {
           name: 'visual',
-          attachmentsDir,
           include: ['src/renderer/**/*.screenshot.test.tsx'],
           setupFiles: ['src/renderer/src/test/setup.ts'],
           // The default 414px viewport would crop the 440px shell the cases
@@ -97,7 +96,6 @@ export default defineConfig({
         define: { __APP_VERSION__: JSON.stringify('0.0.0-test') },
         test: {
           name: 'docs',
-          attachmentsDir,
           include: ['src/renderer/**/*.docs.test.tsx'],
           setupFiles: ['src/renderer/src/test/setup.ts'],
           // Big enough for the whole staged desktop: a 440×620 popup with a

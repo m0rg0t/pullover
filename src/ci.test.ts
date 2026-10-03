@@ -16,10 +16,10 @@ describe('CI evidence and quality gates', () => {
     }
   })
 
-  it('pins the evidence directory for every Vitest project', () => {
+  it('pins the global evidence directory inherited by all Vitest projects', () => {
     const config = readFileSync(resolve(import.meta.dirname, '../vitest.config.ts'), 'utf8')
     expect(config).toContain("resolve(import.meta.dirname, '.vitest-attachments')")
-    expect(config.match(/attachmentsDir,/g)).toHaveLength(3)
+    expect(config).toMatch(/test:\s*\{\s*attachmentsDir,\s*projects:/)
   })
 
   it('runs lint, types, build, screenshots and artifact round-trip on the macOS baseline runner', () => {
