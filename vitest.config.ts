@@ -4,6 +4,8 @@ import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 import type { BrowserConfigOptions } from 'vitest/node'
 
+const attachmentsDir = resolve(import.meta.dirname, '.vitest-attachments')
+
 const alias = {
   '@shared': resolve(import.meta.dirname, 'src/shared'),
   '@core': resolve(import.meta.dirname, 'src/core'),
@@ -64,6 +66,7 @@ export default defineConfig({
         resolve: { alias },
         test: {
           name: 'unit',
+          attachmentsDir,
           environment: 'node',
           include: ['src/**/*.test.ts'],
         },
@@ -78,6 +81,7 @@ export default defineConfig({
         define: { __APP_VERSION__: JSON.stringify('0.0.0-test') },
         test: {
           name: 'visual',
+          attachmentsDir,
           include: ['src/renderer/**/*.screenshot.test.tsx'],
           setupFiles: ['src/renderer/src/test/setup.ts'],
           // The default 414px viewport would crop the 440px shell the cases
@@ -93,6 +97,7 @@ export default defineConfig({
         define: { __APP_VERSION__: JSON.stringify('0.0.0-test') },
         test: {
           name: 'docs',
+          attachmentsDir,
           include: ['src/renderer/**/*.docs.test.tsx'],
           setupFiles: ['src/renderer/src/test/setup.ts'],
           // Big enough for the whole staged desktop: a 440×620 popup with a
