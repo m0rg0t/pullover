@@ -4,6 +4,8 @@ import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 import type { BrowserConfigOptions } from 'vitest/node'
 
+const attachmentsDir = resolve(import.meta.dirname, '.vitest-attachments')
+
 const alias = {
   '@shared': resolve(import.meta.dirname, 'src/shared'),
   '@core': resolve(import.meta.dirname, 'src/core'),
@@ -59,6 +61,7 @@ function screenshotBrowser(
 
 export default defineConfig({
   test: {
+    attachmentsDir,
     projects: [
       {
         resolve: { alias },

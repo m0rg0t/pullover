@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     # macOS, not ubuntu: the screenshot baselines are of this app as it looks
@@ -12,24 +15,43 @@ jobs:
     # against. Pinned rather than `macos-latest` so a runner image upgrade
     # can't silently redraw every baseline. Same image release.yml builds on.
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --no-audit
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/Library/Caches/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
 
+      - run: npm run lint
       - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:artifact-smoke
+      - name: Upload synthetic screenshot evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshot-artifact-smoke
+          path: .vitest-attachments/artifact-smoke/
+          include-hidden-files: true
+          if-no-files-found: error
+      - uses: actions/download-artifact@v8
+        with:
+          name: screenshot-artifact-smoke
+          path: .artifact-roundtrip/
+      - run: node scripts/verify-artifact-roundtrip.mjs .artifact-roundtrip
+
       - run: npm test
 
       # Without these a red screenshot test says only that something moved,
@@ -37,8 +59,9 @@ jobs:
       # between them.
       - name: Upload screenshot diffs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshot-diffs
           path: .vitest-attachments/
+          include-hidden-files: true
           if-no-files-found: ignore
