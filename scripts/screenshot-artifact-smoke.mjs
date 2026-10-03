@@ -22,7 +22,7 @@ const run = (args = []) =>
 
 const fixtureSource = (color) => `
 import { expect, test } from 'vitest'
-import { page } from '@vitest/browser/context'
+import { page } from 'vitest/browser'
 test('artifact evidence', async () => {
   document.body.innerHTML = '<div data-testid="square" style="width:32px;height:32px;background:${color}"></div>'
   await expect.element(page.getByTestId('square')).toMatchScreenshot('smoke')
