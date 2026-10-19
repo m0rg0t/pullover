@@ -83,6 +83,29 @@ export function myLastActivityAt(pr: PullRequest, myLogin: string): string | nul
   return dates.reduce((latest, d) => (compareIso(d, latest) > 0 ? d : latest))
 }
 
+/**
+ * When others wrote to the whole pull request — a review's text or a
+ * conversation comment — after the user's last word and last push, oldest
+ * first. Bots are left out: review bots comment on every push and would never
+ * let the pull request go.
+ */
+export function unansweredPrCommentsAt(pr: PullRequest, myLogin: string): string[] {
+  const lastActivity = myLastActivityAt(pr, myLogin) ?? pr.lastCommitPushedAt
+  const since =
+    compareIso(lastActivity, pr.lastCommitPushedAt) > 0 ? lastActivity : pr.lastCommitPushedAt
+  const byOthers = (c: { authorLogin: string; authorIsBot?: boolean }): boolean =>
+    c.authorLogin !== myLogin && !c.authorIsBot
+
+  // Only a COMMENTED review: an approval's text rides along with the approval,
+  // and a request for changes already has its own reason.
+  const reviewsAt = pr.reviews
+    .filter((r) => r.state === 'COMMENTED' && (r.bodyText ?? '').trim() !== '' && byOthers(r))
+    .map((r) => r.submittedAt)
+  const commentsAt = pr.conversationComments.filter(byOthers).map((c) => c.createdAt)
+
+  return [...reviewsAt, ...commentsAt].filter((at) => compareIso(at, since) > 0).sort(compareIso)
+}
+
 function oldestIso(dates: string[]): string | null {
   if (dates.length === 0) return null
   return dates.reduce((oldest, d) => (compareIso(d, oldest) < 0 ? d : oldest))

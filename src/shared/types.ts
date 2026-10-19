@@ -38,6 +38,8 @@ export interface ThreadComment {
   authorLogin: string
   createdAt: string
   bodyText: string
+  /** Optional so fixtures need not spell it out; `mapPullRequest` always fills it in. */
+  authorIsBot?: boolean
 }
 
 export interface ReviewThread {
@@ -57,6 +59,8 @@ export interface Review {
    * bodies keep compiling unchanged; `mapPullRequest` always fills it in.
    */
   bodyText?: string
+  /** Optional for the same reason as `bodyText`. */
+  authorIsBot?: boolean
 }
 
 export type ReviewDecision = 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null
@@ -193,6 +197,7 @@ export type Trigger =
   | 'changes-requested'
   | 'merge-conflicts'
   | 'open-threads'
+  | 'new-comments'
   | 'ci-failed'
   | 'ready-to-merge'
 
@@ -252,6 +257,12 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
     value: 'open-threads',
     label: 'Open threads',
     description: 'A review comment is waiting on your answer.',
+    side: 'own',
+  },
+  {
+    value: 'new-comments',
+    label: 'New comments',
+    description: 'Somebody commented on the pull request as a whole.',
     side: 'own',
   },
   {
