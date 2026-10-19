@@ -316,6 +316,67 @@ describe('mapPullRequest', () => {
     expect(pr.ciStatus).toBe('success')
   })
 
+  /** `suites` are ones a push created; `unpushed` came from anything else. */
+  function pushed(committedDate: string, suites: (string | null)[], unpushed: string[] = []) {
+    return mapPullRequest(
+      node({
+        commits: {
+          nodes: [
+            {
+              commit: {
+                committedDate,
+                checkSuites: {
+                  nodes: [
+                    ...suites.map((createdAt) =>
+                      createdAt === null ? null : { createdAt, push: { id: 'PSH_1' } },
+                    ),
+                    ...unpushed.map((createdAt) => ({ createdAt, push: null })),
+                  ],
+                },
+                statusCheckRollup: null,
+              },
+            },
+          ],
+        },
+      }),
+      [],
+      'vlad',
+    ).lastCommitPushedAt
+  }
+
+  it('dates a commit pushed hours after it was made by its check suite', () => {
+    expect(pushed('2026-08-04T10:00:00Z', ['2026-08-04T12:00:01Z'])).toBe('2026-08-04T12:00:01Z')
+  })
+
+  // Pushing the same commit again, to another branch, adds later suites.
+  it('takes the earliest suite whatever order GitHub returns them in', () => {
+    expect(pushed('2026-08-04T10:00:00Z', ['2026-08-04T18:00:00Z', '2026-08-04T12:00:01Z'])).toBe(
+      '2026-08-04T12:00:01Z',
+    )
+  })
+
+  // A workflow on pull_request_review would otherwise date the push just after
+  // the review, and every review would be followed by New commits.
+  it('ignores a suite that no push created', () => {
+    expect(pushed('2026-08-04T10:00:00Z', [], ['2026-08-04T15:00:00Z'])).toBe(
+      '2026-08-04T10:00:00Z',
+    )
+  })
+
+  it('skips a suite GitHub returns as null', () => {
+    expect(pushed('2026-08-04T10:00:00Z', [null, '2026-08-04T12:00:01Z'])).toBe(
+      '2026-08-04T12:00:01Z',
+    )
+  })
+
+  it('keeps the commit date when no check ran', () => {
+    expect(pushed('2026-08-04T10:00:00Z', [])).toBe('2026-08-04T10:00:00Z')
+  })
+
+  it('keeps the commit date when a skewed clock puts it after the first check suite', () => {
+    expect(pushed('2026-08-04T10:00:00Z', ['2026-08-04T09:59:00Z'])).toBe('2026-08-04T10:00:00Z')
+  })
+
   it('falls back to createdAt when the commit list is empty', () => {
     const pr = mapPullRequest(node(), [], 'vlad')
     expect(pr.lastCommitPushedAt).toBe('2026-08-01T10:00:00Z')
