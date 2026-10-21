@@ -19,7 +19,8 @@ import type { AppStore } from './store'
 function searchWarning(reasons: SearchStopReason[]): string | null {
   if (reasons.includes('rate-limit')) return 'GitHub quota low; some PRs may be missing'
   if (reasons.includes('page-limit')) return 'GitHub search capped; older PRs may be missing'
-  if (reasons.includes('pagination')) return 'GitHub search interrupted; some PRs may be missing'
+  if (reasons.includes('restriction')) return 'GitHub search cut short; some PRs may be missing'
+  if (reasons.includes('bad-cursor')) return 'GitHub search interrupted; some PRs may be missing'
   return null
 }
 
@@ -247,7 +248,7 @@ export class Inbox {
 
       this.rateLimitedUntil = null
       const warnings = [
-        searchWarning(incompleteReasons ?? []),
+        searchWarning(incompleteReasons),
         formatRestrictedOrgs(restrictedOrgs),
       ].filter((warning): warning is string => warning !== null)
       this.emit({

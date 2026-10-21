@@ -25,7 +25,8 @@ const DETAIL_BATCH_SIZE = 10
 /**
  * Past GitHub's own ten-second limit with room to spare. Without it a request
  * that never answers holds the inbox's one refresh pass open forever; a
- * timeout surfaces as the 500 `isTransientError` retries once.
+ * timeout surfaces as the 500 `isTransientError` retries once — whether it
+ * fires before the headers or while the body is still arriving.
  */
 const REQUEST_TIMEOUT_MS = 30_000
 
@@ -33,8 +34,18 @@ export function createGraphQLClient(token: string): GraphQLClient {
   const authed = graphql.defaults({
     headers: { authorization: `token ${token}` },
   })
-  return (query, variables) =>
-    authed(query, { ...variables, request: { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) } })
+  return async (query, variables) => {
+    const data = await authed(query, {
+      ...variables,
+      request: { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
+    })
+    // A timeout while the body streams doesn't throw: @octokit/request reads
+    // the cut-off body as an empty string, which leaves no data to return.
+    if (data === undefined) {
+      throw Object.assign(new Error('GitHub cut the response off'), { status: 500 })
+    }
+    return data
+  }
 }
 
 /** `rateLimit`, as GraphQL returns it beside the data a query asked for. */
@@ -87,10 +98,11 @@ export interface FetchedPullRequests {
   /** Orgs the OAuth app cannot see; their PRs are omitted rather than failing the fetch. */
   restrictedOrgs: string[]
   /** Why a successful search may still have omitted older pull requests. */
-  incompleteReasons?: SearchStopReason[]
+  incompleteReasons: SearchStopReason[]
 }
 
-export type SearchStopReason = 'page-limit' | 'rate-limit' | 'pagination'
+/** `restriction`: an org restriction cut the search off and only what came before it is kept. */
+export type SearchStopReason = 'page-limit' | 'rate-limit' | 'bad-cursor' | 'restriction'
 
 interface SearchPage {
   nodes: Array<{ id?: string } | null>
@@ -173,7 +185,7 @@ async function searchPages(
 
     if (!result.pageInfo?.hasNextPage) return null
     const next = result.pageInfo.endCursor
-    if (next === null || seen.has(next)) return 'pagination'
+    if (next === null || seen.has(next)) return 'bad-cursor'
     const remaining = (data as RateLimitFields).rateLimit?.remaining
     if (remaining !== undefined && remaining < SEARCH_RATE_RESERVE) {
       return 'rate-limit'
@@ -226,14 +238,16 @@ async function searchBucket(
   // Either GitHub named the same orgs again or the rounds ran out. Excluding
   // more is not going to produce a clean response, so keep whatever came back
   // alongside the last error rather than dropping the bucket entirely — but
-  // only if something did. With no payload there is nothing to stand in for
-  // the bucket, and answering "empty" would be a lie the user acts on.
+  // only if something did: earlier pages in `found`, or a payload on the
+  // error. With neither there is nothing to stand in for the bucket, and
+  // answering "empty" would be a lie the user acts on.
   const salvaged = searchPage(graphqlPartialData(lastRestriction))
-  if (salvaged === null) throw lastRestriction
+  if (salvaged === null && found.length === 0) throw lastRestriction
   return {
-    ids: [...found, ...idsFromSearch(salvaged.nodes)],
+    ids: [...found, ...idsFromSearch(salvaged?.nodes ?? [])],
     restrictedOrgs: excluded,
-    incompleteReasons: salvaged.pageInfo?.hasNextPage ? ['pagination'] : [],
+    // Complete only when the payload itself says it was the last page.
+    incompleteReasons: salvaged?.pageInfo?.hasNextPage === false ? [] : ['restriction'],
   }
 }
 
@@ -340,17 +354,24 @@ async function collectIds(client: GraphQLClient): Promise<{
 
 const DETAIL_CONCURRENCY = 6
 
-async function fetchDetailBatches(
+/**
+ * Caps how many requests through `client` are in flight at once, split halves
+ * included. Once `signal` aborts, requests still waiting for a slot fail
+ * instead of going out: their results would never be read, and a refresh
+ * that has already failed must not compete with the next one for quota.
+ */
+function limitConcurrency(
   client: GraphQLClient,
-  batches: string[][],
-): Promise<Awaited<ReturnType<typeof fetchDetails>>[]> {
-  const results: Awaited<ReturnType<typeof fetchDetails>>[] = new Array(batches.length)
-  let available = DETAIL_CONCURRENCY
+  limit: number,
+  signal: AbortSignal,
+): GraphQLClient {
+  let available = limit
   const waiters: Array<() => void> = []
-  const limitedClient: GraphQLClient = async (query, variables) => {
+  return async (query, variables) => {
     if (available > 0) available -= 1
     else await new Promise<void>((resolve) => waiters.push(resolve))
     try {
+      if (signal.aborted) throw new Error('Refresh abandoned after a failed batch')
       return await client(query, variables)
     } finally {
       const next = waiters.shift()
@@ -358,15 +379,6 @@ async function fetchDetailBatches(
       else available += 1
     }
   }
-  let nextIndex = 0
-  const workers = Array.from({ length: Math.min(DETAIL_CONCURRENCY, batches.length) }, async () => {
-    while (nextIndex < batches.length) {
-      const index = nextIndex++
-      results[index] = await fetchDetails(limitedClient, batches[index])
-    }
-  })
-  await Promise.all(workers)
-  return results
 }
 
 export async function fetchPullRequests(
@@ -380,9 +392,18 @@ export async function fetchPullRequests(
     incompleteReasons,
   } = await collectIds(metered.client)
 
-  // The worker pool preserves batch order even when later requests finish first.
+  // `Promise.all` keeps batch order even when later requests finish first.
   const batches = chunk([...bucketsById.keys()], DETAIL_BATCH_SIZE)
-  const batchResults = await fetchDetailBatches(metered.client, batches)
+  const abandon = new AbortController()
+  const detailsClient = limitConcurrency(metered.client, DETAIL_CONCURRENCY, abandon.signal)
+  const batchResults = await Promise.all(
+    batches.map((ids) =>
+      fetchDetails(detailsClient, ids).catch((error: unknown) => {
+        abandon.abort()
+        throw error
+      }),
+    ),
+  )
 
   const prs: PullRequest[] = []
   for (const { nodes } of batchResults) {
@@ -399,9 +420,5 @@ export async function fetchPullRequests(
     searchRestrictions,
     ...batchResults.map((batch) => batch.restrictedOrgs),
   )
-  return {
-    prs,
-    restrictedOrgs,
-    ...(incompleteReasons.length > 0 ? { incompleteReasons } : {}),
-  }
+  return { prs, restrictedOrgs, incompleteReasons }
 }

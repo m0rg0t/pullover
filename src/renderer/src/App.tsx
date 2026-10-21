@@ -229,8 +229,13 @@ export default function App(): React.JSX.Element {
         >
           {showEmptyState && (
             <EmptyState
-              isError={snapshot.status === 'error'}
-              isPartial={snapshot.status === 'ready' && snapshot.errorMessage !== null}
+              kind={
+                snapshot.status === 'error'
+                  ? 'error'
+                  : snapshot.status === 'ready' && snapshot.errorMessage !== null
+                    ? 'partial'
+                    : 'zero'
+              }
             />
           )}
 

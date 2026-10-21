@@ -24,7 +24,7 @@ class MemoryStore implements KeyValueStore {
 
 /** What `fetchPullRequests` resolves to, for stubs that only care about the PRs. */
 function fetched(prs: PullRequest[]): FetchedPullRequests {
-  return { prs, restrictedOrgs: [] }
+  return { prs, restrictedOrgs: [], incompleteReasons: [] }
 }
 
 const NOW = '2026-08-10T12:00:00Z'
@@ -170,6 +170,7 @@ describe('Inbox.refresh', () => {
     const fetchPrs = vi.fn(async () => ({
       prs: [makePullRequest({ id: 'PR_1', buckets: ['review-requested'] })],
       restrictedOrgs: ['status-im'],
+      incompleteReasons: [],
     }))
     const inbox = build([], { fetchPrs })
 
@@ -184,7 +185,8 @@ describe('Inbox.refresh', () => {
   it.each([
     ['page-limit', 'GitHub search capped; older PRs may be missing'],
     ['rate-limit', 'GitHub quota low; some PRs may be missing'],
-    ['pagination', 'GitHub search interrupted; some PRs may be missing'],
+    ['bad-cursor', 'GitHub search interrupted; some PRs may be missing'],
+    ['restriction', 'GitHub search cut short; some PRs may be missing'],
   ] as const)('keeps the inbox ready and reports %s', async (reason, warning) => {
     const fetchPrs = vi.fn(async () => ({
       prs: [],

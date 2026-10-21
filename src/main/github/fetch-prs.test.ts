@@ -1,6 +1,6 @@
 import { GraphqlResponseError } from '@octokit/graphql'
-import { describe, expect, it, vi } from 'vitest'
-import { fetchPullRequests, fetchViewerLogin } from './fetch-prs'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createGraphQLClient, fetchPullRequests, fetchViewerLogin } from './fetch-prs'
 import { DETAILS_QUERY, SEARCH_QUERY, VIEWER_QUERY } from './queries'
 
 const DETAIL_BATCH_SIZE = 10
@@ -346,7 +346,7 @@ describe('fetchPullRequests', () => {
     expect(pending).toHaveLength(4)
 
     for (const d of pending) d.resolve({ search: { nodes: [] } })
-    await expect(result).resolves.toEqual({ prs: [], restrictedOrgs: [] })
+    await expect(result).resolves.toEqual({ prs: [], restrictedOrgs: [], incompleteReasons: [] })
   })
 
   it('issues detail batches concurrently rather than waiting for each to resolve', async () => {
@@ -380,7 +380,7 @@ describe('fetchPullRequests', () => {
     expect(pending).toHaveLength(6)
 
     for (const d of pending) d.resolve({ nodes: [] })
-    await expect(result).resolves.toEqual({ prs: [], restrictedOrgs: [] })
+    await expect(result).resolves.toEqual({ prs: [], restrictedOrgs: [], incompleteReasons: [] })
   })
 
   it('limits concurrent detail requests while preserving every result', async () => {
@@ -653,7 +653,77 @@ describe('fetchPullRequests', () => {
 
     expect(result.prs.map((pr) => pr.id)).toEqual(['PR_1'])
     expect(result.restrictedOrgs.length).toBeGreaterThan(0)
-    expect(result.incompleteReasons).toEqual(['pagination'])
+    expect(result.incompleteReasons).toEqual(['restriction'])
+  })
+
+  it('keeps earlier pages when a restriction on a later page carries no results', async () => {
+    // Page 1 goes through; page 2 names an org and brings nothing back, in
+    // every round, so the only PRs left to report are the ones page 1 found.
+    const client = vi.fn(async (query: string, variables: Record<string, unknown>) => {
+      if (query === SEARCH_QUERY) {
+        if (!(variables.q as string).includes('author:@me')) {
+          return { search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } }
+        }
+        if (variables.after === null) {
+          return {
+            search: {
+              pageInfo: { hasNextPage: true, endCursor: 'page-2' },
+              nodes: [{ id: 'PR_1' }, { id: 'PR_2' }],
+            },
+          }
+        }
+        throw new GraphqlResponseError(
+          { method: 'POST', url: 'https://api.github.com/graphql' },
+          {},
+          {
+            data: null,
+            errors: [
+              { message: 'the `status-im` organization has enabled OAuth App access restrictions' },
+            ],
+          } as never,
+        )
+      }
+      if (query === DETAILS_QUERY) {
+        return { nodes: (variables.ids as string[]).map((id) => detailNode(id)) }
+      }
+      throw new Error(`unexpected query: ${query}`)
+    })
+
+    const result = await fetchPullRequests(client, 'vlad')
+
+    expect(result.prs.map((pr) => pr.id)).toEqual(['PR_1', 'PR_2'])
+    expect(result.restrictedOrgs).toEqual(['status-im'])
+    expect(result.incompleteReasons).toEqual(['restriction'])
+  })
+
+  it('sends no more detail requests once a batch has failed for good', async () => {
+    // Twelve batches against six slots: the first fails with a dead token,
+    // which nothing retries. Without the abort all six queued would go out.
+    const ids = Array.from({ length: 12 * DETAIL_BATCH_SIZE }, (_, i) => `PR_${i}`)
+    const gates = Array.from({ length: 6 }, () => deferred<void>())
+    let detailCalls = 0
+    const client = vi.fn(async (query: string, variables: Record<string, unknown>) => {
+      if (query === SEARCH_QUERY) {
+        const q = variables.q as string
+        return { search: { nodes: q.includes('author:@me') ? ids.map((id) => ({ id })) : [] } }
+      }
+      if (query === DETAILS_QUERY) {
+        const call = detailCalls++
+        if (call === 0) throw httpError(401)
+        await gates[call]!.promise
+        return { nodes: (variables.ids as string[]).map((id) => detailNode(id)) }
+      }
+      throw new Error(`unexpected query: ${query}`)
+    })
+
+    const result = fetchPullRequests(client, 'vlad')
+    await expect(result).rejects.toThrow('HTTP 401')
+    for (const gate of gates) gate.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    // The one that failed, the five already in flight, and the one whose
+    // slot it freed before the abort could land.
+    expect(detailCalls).toBeLessThanOrEqual(7)
   })
 
   it('recovers a restriction that only shows up on a detail batch second try', async () => {
@@ -820,6 +890,38 @@ describe('fetchPullRequests search pagination', () => {
 
     const searches = client.mock.calls.filter(([query]) => query === SEARCH_QUERY)
     expect(searches).toHaveLength(8)
-    expect(incompleteReasons).toEqual(['pagination'])
+    expect(incompleteReasons).toEqual(['bad-cursor'])
+  })
+})
+
+describe('createGraphQLClient', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('turns a body cut off mid-stream into a failure worth retrying', async () => {
+    // What a timeout looks like once the headers are in: the body stream
+    // errors, @octokit/request reads it as "", and there is no data left.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.error(new DOMException('The operation timed out.', 'TimeoutError'))
+              },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+      ),
+    )
+
+    const client = createGraphQLClient('token')
+
+    await expect(client(VIEWER_QUERY, {})).rejects.toMatchObject({
+      message: 'GitHub cut the response off',
+      status: 500,
+    })
   })
 })

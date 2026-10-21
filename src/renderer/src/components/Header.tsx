@@ -89,10 +89,10 @@ export default function Header({
         )}
         <View direction="column" grow minWidth={0}>
           <Text as="span" variant="body-2" weight="semibold" color="neutral" maxLines={1}>
-            {snapshot.status === 'ready' && snapshot.errorMessage !== null
-              ? 'Partial inbox'
-              : snapshot.attentionCount > 0
-                ? 'waiting on you'
+            {snapshot.attentionCount > 0
+              ? 'waiting on you'
+              : snapshot.status === 'ready' && snapshot.errorMessage !== null
+                ? 'Partial inbox'
                 : 'All clear'}
           </Text>
           <Text as="span" variant="caption-1" color="neutral-faded" maxLines={1}>
