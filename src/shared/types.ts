@@ -221,6 +221,7 @@ export interface TriggerOption {
   value: Trigger
   label: string
   description: string
+  gitlabDescription?: string
   /** Whose pull request the reason is about: one the user reviews, or one they wrote. */
   side: 'review' | 'own'
 }
@@ -279,6 +280,7 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
     value: 'new-comments',
     label: 'New comments',
     description: 'Somebody commented on the pull request as a whole.',
+    gitlabDescription: 'Somebody commented on the merge request as a whole.',
     side: 'own',
   },
   {

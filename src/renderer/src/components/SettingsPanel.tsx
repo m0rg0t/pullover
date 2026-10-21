@@ -99,7 +99,13 @@ export default function SettingsPanel({
     shownReasons === TRIGGER_OPTIONS.length ? 'All' : `${shownReasons} of ${TRIGGER_OPTIONS.length}`
 
   if (pane === 'reasons') {
-    return <ReasonsPane muted={settings.mutedTriggers} onBack={() => setPane('root')} />
+    return (
+      <ReasonsPane
+        muted={settings.mutedTriggers}
+        provider={settings.provider}
+        onBack={() => setPane('root')}
+      />
+    )
   }
 
   if (pane === 'repositories') {
