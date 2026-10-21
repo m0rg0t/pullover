@@ -222,6 +222,8 @@ export interface TriggerOption {
   label: string
   description: string
   gitlabDescription?: string
+  /** GitLab's inbox never produces it, so its switch would do nothing there. */
+  githubOnly?: boolean
   /** Whose pull request the reason is about: one the user reviews, or one they wrote. */
   side: 'review' | 'own'
 }
@@ -239,6 +241,7 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
     label: 'Re-review requested',
     description: 'The author asked for another pass after your review.',
     side: 'review',
+    githubOnly: true,
   },
   {
     value: 'new-replies',
@@ -251,6 +254,7 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
     label: 'New commits',
     description: 'Commits were pushed after your review.',
     side: 'review',
+    githubOnly: true,
   },
   {
     value: 'mentioned',
@@ -294,8 +298,15 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
     label: 'Ready to merge',
     description: 'Approved, with nothing else in the way.',
     side: 'own',
+    githubOnly: true,
   },
 ]
+
+export function triggerOptionsFor(provider: Provider): TriggerOption[] {
+  return provider === 'gitlab'
+    ? TRIGGER_OPTIONS.filter((option) => !option.githubOnly)
+    : TRIGGER_OPTIONS
+}
 
 export type Provider = 'github' | 'gitlab'
 

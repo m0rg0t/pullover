@@ -99,3 +99,14 @@ test('aligns Sign out with the right edge of other settings controls', async () 
   expect(Math.abs(signOutRight - accountRight)).toBeLessThanOrEqual(1)
   expect(Math.abs(sponsorRight - accountRight)).toBeLessThanOrEqual(1)
 })
+
+test('counts only the reasons GitLab can show', async () => {
+  const screen = await render(
+    <Reshaped theme="slate" defaultColorMode="light">
+      <div style={{ width: '440px', height: WINDOW_HEIGHT_PX }}>
+        {panel({ provider: 'gitlab', mutedTriggers: ['new-commits', 'mentioned'] })}
+      </div>
+    </Reshaped>,
+  )
+  await expect.element(screen.getByText('7 of 8')).toBeVisible()
+})

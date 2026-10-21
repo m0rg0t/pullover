@@ -1,4 +1,4 @@
-import { type Provider, TRIGGER_OPTIONS, type Trigger, type TriggerOption } from '@shared/types'
+import { type Provider, type Trigger, type TriggerOption, triggerOptionsFor } from '@shared/types'
 import { ScrollArea, Switch, Text, View } from 'reshaped/bundle'
 import PaneHeader from './PaneHeader'
 import SettingRow from './SettingRow'
@@ -42,27 +42,29 @@ export default function ReasonsPane({ muted, provider, onBack }: Props): React.J
                   </Text>
                 </View>
                 <SettingsGroup>
-                  {TRIGGER_OPTIONS.filter((option) => option.side === side).map((option) => (
-                    <SettingRow
-                      key={option.value}
-                      label={option.label}
-                      description={
-                        provider === 'gitlab'
-                          ? (option.gitlabDescription ?? option.description)
-                          : option.description
-                      }
-                      leading={
-                        <Switch
-                          name={`trigger-${option.value}`}
-                          inputAttributes={{ 'aria-label': option.label }}
-                          checked={!muted.includes(option.value)}
-                          onChange={({ checked }) =>
-                            void window.api.setTriggerMuted(option.value, !checked)
-                          }
-                        />
-                      }
-                    />
-                  ))}
+                  {triggerOptionsFor(provider)
+                    .filter((option) => option.side === side)
+                    .map((option) => (
+                      <SettingRow
+                        key={option.value}
+                        label={option.label}
+                        description={
+                          provider === 'gitlab'
+                            ? (option.gitlabDescription ?? option.description)
+                            : option.description
+                        }
+                        leading={
+                          <Switch
+                            name={`trigger-${option.value}`}
+                            inputAttributes={{ 'aria-label': option.label }}
+                            checked={!muted.includes(option.value)}
+                            onChange={({ checked }) =>
+                              void window.api.setTriggerMuted(option.value, !checked)
+                            }
+                          />
+                        }
+                      />
+                    ))}
                 </SettingsGroup>
               </View>
             ))}

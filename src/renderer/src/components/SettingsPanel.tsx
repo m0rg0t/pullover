@@ -5,7 +5,7 @@ import {
   type Layout,
   SHORTCUT_OPTIONS,
   type ThemePreference,
-  TRIGGER_OPTIONS,
+  triggerOptionsFor,
 } from '@shared/types'
 import { Heart, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -94,9 +94,12 @@ export default function SettingsPanel({
     settings.repositories,
   )
 
-  const shownReasons = TRIGGER_OPTIONS.length - settings.mutedTriggers.length
+  const reasons = triggerOptionsFor(settings.provider)
+  const shownReasons = reasons.filter(
+    (option) => !settings.mutedTriggers.includes(option.value),
+  ).length
   const reasonSummary =
-    shownReasons === TRIGGER_OPTIONS.length ? 'All' : `${shownReasons} of ${TRIGGER_OPTIONS.length}`
+    shownReasons === reasons.length ? 'All' : `${shownReasons} of ${reasons.length}`
 
   if (pane === 'reasons') {
     return (
