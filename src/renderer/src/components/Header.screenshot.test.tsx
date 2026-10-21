@@ -66,8 +66,18 @@ visualCase(
 
 visualCase(
   'partial-inbox',
+  header(snapshot({ attentionCount: 0, errorMessage: 'Older PRs may be missing' })),
+)
+
+// Both warnings at once: longer than the line, so it fades out at the edge
+// and scrolls on hover rather than ending in an ellipsis.
+visualCase(
+  'partial-inbox-restricted-org',
   header(
-    snapshot({ attentionCount: 0, errorMessage: 'GitHub search capped; older PRs may be missing' }),
+    snapshot({
+      attentionCount: 0,
+      errorMessage: "status-im hasn't approved Pullover · Older PRs may be missing",
+    }),
   ),
 )
 

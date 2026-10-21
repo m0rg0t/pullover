@@ -2,7 +2,9 @@ import { formatAge } from '@core/format'
 import type { InboxSnapshot } from '@shared/ipc'
 import type { UpdateState } from '@shared/types'
 import { ArrowDownToLine, RefreshCw, Settings } from 'lucide-react'
+import { useState } from 'react'
 import { Button, Text, View } from 'reshaped/bundle'
+import Marquee from './Marquee'
 
 interface Props {
   snapshot: InboxSnapshot
@@ -50,6 +52,7 @@ export default function Header({
 }: Props): React.JSX.Element {
   const updateReady = update.status === 'ready' && update.version !== null
   const updateLabel = `Restart to update to ${update.version}`
+  const [statusHovered, setStatusHovered] = useState(false)
   return (
     <View
       direction="row"
@@ -87,7 +90,15 @@ export default function Header({
             </Text>
           </View>
         )}
-        <View direction="column" grow minWidth={0}>
+        <View
+          direction="column"
+          grow
+          minWidth={0}
+          attributes={{
+            onMouseEnter: () => setStatusHovered(true),
+            onMouseLeave: () => setStatusHovered(false),
+          }}
+        >
           <Text as="span" variant="body-2" weight="semibold" color="neutral" maxLines={1}>
             {snapshot.attentionCount > 0
               ? 'waiting on you'
@@ -95,8 +106,8 @@ export default function Header({
                 ? 'Partial inbox'
                 : 'All clear'}
           </Text>
-          <Text as="span" variant="caption-1" color="neutral-faded" maxLines={1}>
-            {statusText(snapshot, now)}
+          <Text as="div" variant="caption-1" color="neutral-faded">
+            <Marquee active={statusHovered}>{statusText(snapshot, now)}</Marquee>
           </Text>
         </View>
       </View>

@@ -17,10 +17,10 @@ import { rateLimitResetAt } from './github/rate-limit'
 import type { AppStore } from './store'
 
 function searchWarning(reasons: SearchStopReason[]): string | null {
-  if (reasons.includes('rate-limit')) return 'GitHub quota low; some PRs may be missing'
-  if (reasons.includes('page-limit')) return 'GitHub search capped; older PRs may be missing'
-  if (reasons.includes('restriction')) return 'GitHub search cut short; some PRs may be missing'
-  if (reasons.includes('bad-cursor')) return 'GitHub search interrupted; some PRs may be missing'
+  if (reasons.includes('rate-limit')) return 'Quota low; some PRs may be missing'
+  if (reasons.includes('page-limit')) return 'Older PRs may be missing'
+  if (reasons.includes('restriction')) return 'Search cut short; PRs may be missing'
+  if (reasons.includes('bad-cursor')) return 'Search interrupted; PRs may be missing'
   return null
 }
 
@@ -247,9 +247,10 @@ export class Inbox {
       const items = this.attachStacks(classifyAll(filtered, this.classifyContext(myLogin, now)))
 
       this.rateLimitedUntil = null
+      // The org first: it is the one the user can do something about.
       const warnings = [
-        searchWarning(incompleteReasons),
         formatRestrictedOrgs(restrictedOrgs),
+        searchWarning(incompleteReasons),
       ].filter((warning): warning is string => warning !== null)
       this.emit({
         status: 'ready',

@@ -183,10 +183,10 @@ describe('Inbox.refresh', () => {
   })
 
   it.each([
-    ['page-limit', 'GitHub search capped; older PRs may be missing'],
-    ['rate-limit', 'GitHub quota low; some PRs may be missing'],
-    ['bad-cursor', 'GitHub search interrupted; some PRs may be missing'],
-    ['restriction', 'GitHub search cut short; some PRs may be missing'],
+    ['page-limit', 'Older PRs may be missing'],
+    ['rate-limit', 'Quota low; some PRs may be missing'],
+    ['bad-cursor', 'Search interrupted; PRs may be missing'],
+    ['restriction', 'Search cut short; PRs may be missing'],
   ] as const)('keeps the inbox ready and reports %s', async (reason, warning) => {
     const fetchPrs = vi.fn(async () => ({
       prs: [],
@@ -202,6 +202,21 @@ describe('Inbox.refresh', () => {
       attentionCount: 0,
       errorMessage: warning,
     })
+  })
+
+  it('names the org before the search warning', async () => {
+    const fetchPrs = vi.fn(async () => ({
+      prs: [],
+      restrictedOrgs: ['status-im'],
+      incompleteReasons: ['page-limit' as const],
+    }))
+    const inbox = build([], { fetchPrs })
+
+    await inbox.refresh()
+
+    expect(inbox.getSnapshot().errorMessage).toBe(
+      "status-im hasn't approved Pullover · Older PRs may be missing",
+    )
   })
 
   it('classifies fetched PRs and counts the ones needing attention', async () => {

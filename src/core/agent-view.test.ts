@@ -163,11 +163,11 @@ describe('describeInbox', () => {
     const result = describeInbox(
       snapshot([item('needs-review')], {
         status: 'ready',
-        errorMessage: 'GitHub search capped; older PRs may be missing',
+        errorMessage: 'Older PRs may be missing',
       }),
       { includeWaiting: false },
     )
-    expect(result.notice).toBe('GitHub search capped; older PRs may be missing')
+    expect(result.notice).toBe('Older PRs may be missing')
     expect(result.sections).toHaveLength(1)
   })
 
