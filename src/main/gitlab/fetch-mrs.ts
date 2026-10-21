@@ -1,4 +1,11 @@
-import type { PullRequest, ReviewThread, SearchBucket, ThreadComment } from '@shared/types'
+import type {
+  AttentionOverride,
+  PullRequest,
+  ReviewThread,
+  SearchBucket,
+  ThreadComment,
+  Trigger,
+} from '@shared/types'
 import { type GitLabClient, GitLabHttpError } from './client'
 
 interface GitLabUser {
@@ -107,6 +114,21 @@ function todoReason(todo: GitLabTodo): string {
       return 'Marked for follow-up'
     default:
       return 'New activity'
+  }
+}
+
+function todoTrigger(todo: GitLabTodo): Trigger | undefined {
+  switch (todo.action_name) {
+    case 'mentioned':
+      return 'mentioned'
+    case 'directly_addressed':
+      return 'new-replies'
+    case 'build_failed':
+      return 'ci-failed'
+    case 'unmergeable':
+      return 'merge-conflicts'
+    default:
+      return undefined
   }
 }
 
@@ -223,11 +245,7 @@ export async function fetchGitLabMergeRequests(
     if (own) buckets.push('author')
     if (mention) buckets.push('mentions')
 
-    let attention: PullRequest['attentionOverride'] = {
-      category: 'waiting',
-      reason: own ? 'Waiting on reviewers' : 'Waiting on others',
-      waitingSince: null,
-    }
+    const attention: AttentionOverride[] = []
     if (own) {
       const unresolved = discussions.filter(
         (discussion) =>
@@ -236,19 +254,23 @@ export async function fetchGitLabMergeRequests(
           humanNotes(discussion).at(-1)?.author.username !== viewer.username,
       )
       if (mr.detailed_merge_status === 'conflict' || mr.has_conflicts) {
-        attention = {
+        attention.push({
           category: 'my-pr-action',
           reason: 'Merge conflicts',
           waitingSince: mr.updated_at,
-        }
-      } else if (mr.detailed_merge_status === 'requested_changes') {
-        attention = {
+          trigger: 'merge-conflicts',
+        })
+      }
+      if (mr.detailed_merge_status === 'requested_changes') {
+        attention.push({
           category: 'my-pr-action',
           reason: 'Changes requested',
           waitingSince: mr.updated_at,
-        }
-      } else if (unresolved.length > 0) {
-        attention = {
+          trigger: 'changes-requested',
+        })
+      }
+      if (unresolved.length > 0) {
+        attention.push({
           category: 'my-pr-action',
           reason: 'Open discussions',
           waitingSince:
@@ -256,46 +278,73 @@ export async function fetchGitLabMergeRequests(
               .map((discussion) => humanNotes(discussion).at(-1)?.created_at)
               .filter((at): at is string => at !== undefined)
               .sort()[0] ?? mr.updated_at,
-        }
-      } else if (ciStatus(mr.head_pipeline?.status) === 'failure') {
-        attention = { category: 'my-pr-action', reason: 'CI is red', waitingSince: mr.updated_at }
-      } else if (anyTodo) {
-        attention = {
+          trigger: 'open-threads',
+        })
+      }
+      if (ciStatus(mr.head_pipeline?.status) === 'failure') {
+        attention.push({
+          category: 'my-pr-action',
+          reason: 'CI is red',
+          waitingSince: mr.updated_at,
+          trigger: 'ci-failed',
+        })
+      }
+      if (anyTodo) {
+        attention.push({
           category: 'my-pr-action',
           reason: todoReason(anyTodo),
           waitingSince: anyTodo.created_at,
-        }
-      } else if (unansweredComment) {
-        attention = {
+          trigger: todoTrigger(anyTodo),
+        })
+      }
+      if (unansweredComment) {
+        attention.push({
           category: 'my-pr-action',
           reason: 'Unanswered comment',
           waitingSince: unansweredComment.created_at,
-        }
+          trigger: 'new-comments',
+        })
       }
-    } else if (
-      myReviewer?.state === 'unreviewed' ||
-      myReviewer?.state === 'review_started' ||
-      (reviewIds.has(mr.id) && !myReviewer)
-    ) {
-      attention = {
-        category: 'needs-review',
-        reason: 'Review requested',
-        waitingSince: myReviewer?.created_at ?? mr.created_at,
+    } else {
+      if (
+        myReviewer?.state === 'unreviewed' ||
+        myReviewer?.state === 'review_started' ||
+        (reviewIds.has(mr.id) && !myReviewer)
+      ) {
+        attention.push({
+          category: 'needs-review',
+          reason: 'Review requested',
+          waitingSince: myReviewer?.created_at ?? mr.created_at,
+          trigger: 'review-requested',
+        })
       }
-    } else if (mention) {
-      attention = { category: 'mentioned', reason: 'Mentioned', waitingSince: mention.created_at }
-    } else if (anyTodo) {
-      attention = {
-        category:
-          anyTodo.action_name === 'approval_required' || anyTodo.action_name === 'assigned'
-            ? 'needs-review'
-            : anyTodo.action_name === 'directly_addressed'
-              ? 'new-replies'
-              : 'other-action',
-        reason: todoReason(anyTodo),
-        waitingSince: anyTodo.created_at,
+      if (mention) {
+        attention.push({
+          category: 'mentioned',
+          reason: 'Mentioned',
+          waitingSince: mention.created_at,
+          trigger: 'mentioned',
+        })
+      }
+      if (anyTodo) {
+        attention.push({
+          category:
+            anyTodo.action_name === 'approval_required' || anyTodo.action_name === 'assigned'
+              ? 'needs-review'
+              : anyTodo.action_name === 'directly_addressed'
+                ? 'new-replies'
+                : 'other-action',
+          reason: todoReason(anyTodo),
+          waitingSince: anyTodo.created_at,
+          trigger: todoTrigger(anyTodo),
+        })
       }
     }
+    attention.push({
+      category: 'waiting',
+      reason: own ? 'Waiting on reviewers' : 'Waiting on others',
+      waitingSince: null,
+    })
 
     return {
       id: `gitlab:${mr.id}`,
@@ -330,7 +379,7 @@ export async function fetchGitLabMergeRequests(
       mentionsAt: mention ? [mention.created_at] : [],
       buckets,
       provider: 'gitlab',
-      attentionOverride: attention,
+      attentionOverrides: attention,
     }
   }
   const result: PullRequest[] = []

@@ -66,7 +66,7 @@ describe('GitLab merge request inbox', () => {
 
     const result = await fetchGitLabMergeRequests(client, viewer)
     expect(result).toHaveLength(3)
-    expect(result.map((item) => item.attentionOverride?.category)).toEqual([
+    expect(result.map((item) => item.attentionOverrides?.[0]?.category)).toEqual([
       'needs-review',
       'waiting',
       'mentioned',
@@ -88,7 +88,7 @@ describe('GitLab merge request inbox', () => {
       },
     }
     const result = await fetchGitLabMergeRequests(client, viewer)
-    expect(result[0]?.attentionOverride).toMatchObject({
+    expect(result[0]?.attentionOverrides?.[0]).toMatchObject({
       category: 'my-pr-action',
       reason: 'CI is red',
     })
@@ -124,7 +124,7 @@ describe('GitLab merge request inbox', () => {
       },
     }
     const first = await fetchGitLabMergeRequests(client, viewer)
-    expect(first[0]?.attentionOverride?.reason).toBe('Unanswered comment')
+    expect(first[0]?.attentionOverrides?.[0]?.reason).toBe('Unanswered comment')
     notes.push({
       id: 2,
       author: viewer,
@@ -133,7 +133,7 @@ describe('GitLab merge request inbox', () => {
       resolvable: false,
     })
     const second = await fetchGitLabMergeRequests(client, viewer)
-    expect(second[0]?.attentionOverride?.category).toBe('waiting')
+    expect(second[0]?.attentionOverrides?.[0]?.category).toBe('waiting')
   })
 
   it('keeps a separate discussion pending after I reply elsewhere', async () => {
@@ -166,7 +166,7 @@ describe('GitLab merge request inbox', () => {
     }
 
     const result = await fetchGitLabMergeRequests(client, viewer)
-    expect(result[0]?.attentionOverride).toMatchObject({
+    expect(result[0]?.attentionOverrides?.[0]).toMatchObject({
       category: 'my-pr-action',
       reason: 'Unanswered comment',
       waitingSince: '2026-09-03T10:00:00Z',
@@ -194,7 +194,7 @@ describe('GitLab merge request inbox', () => {
 
     const result = await fetchGitLabMergeRequests(client, viewer)
     expect(result).toHaveLength(1)
-    expect(result[0]?.attentionOverride?.category).toBe('needs-review')
+    expect(result[0]?.attentionOverrides?.[0]?.category).toBe('needs-review')
   })
 
   it('keeps overview comments separate from inline review threads', async () => {

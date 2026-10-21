@@ -85,7 +85,7 @@ describe('GitLab HTTP integration', () => {
     const user = await fetchGitLabViewer(client)
     const items = await fetchGitLabMergeRequests(client, user)
 
-    expect(items.map((item) => item.attentionOverride?.category)).toEqual([
+    expect(items.map((item) => item.attentionOverrides?.[0]?.category)).toEqual([
       'needs-review',
       'waiting',
       'mentioned',

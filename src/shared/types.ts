@@ -68,9 +68,18 @@ export type ReviewDecision = 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED
 /** GitHub computes mergeability in the background, so `UNKNOWN` means "not yet", not "maybe". */
 export type MergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN'
 
+export interface AttentionOverride {
+  category: Category
+  reason: string
+  waitingSince: string | null
+  /** Omitted for reasons the Reasons screen cannot mute. */
+  trigger?: Trigger
+}
+
 export interface PullRequest {
   provider?: 'github' | 'gitlab'
-  attentionOverride?: { category: Category; reason: string; waitingSince: string | null }
+  /** Decided by the provider, most urgent first; `classify` takes the first whose trigger is on. */
+  attentionOverrides?: AttentionOverride[]
   id: string
   number: number
   title: string
