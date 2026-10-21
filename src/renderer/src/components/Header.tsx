@@ -59,6 +59,7 @@ export default function Header({
   const updateReady = update.status === 'ready' && update.version !== null
   const updateLabel = `Restart to update to ${update.version}`
   const [statusHovered, setStatusHovered] = useState(false)
+  const status = statusText(snapshot, now)
   return (
     <View
       direction="row"
@@ -71,6 +72,7 @@ export default function Header({
       backgroundColor="elevation-raised"
       borderColor="neutral"
       borderBottom
+      className="pv-header"
     >
       {/* `grow` does two things here, and both are needed: a row `View` wraps
           by default, and a growing child switches its parent to nowrap — so
@@ -109,7 +111,11 @@ export default function Header({
             {headline(snapshot)}
           </Text>
           <Text as="div" variant="caption-1" color="neutral-faded">
-            <Marquee active={statusHovered}>{statusText(snapshot, now)}</Marquee>
+            {/* Keyed by the text: the line changes under the cursor every
+                minute, and a fresh Marquee measures it anew. */}
+            <Marquee key={status} active={statusHovered}>
+              {status}
+            </Marquee>
           </Text>
         </View>
       </View>
