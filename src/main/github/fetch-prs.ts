@@ -98,11 +98,11 @@ export interface FetchedPullRequests {
   /** Orgs the OAuth app cannot see; their PRs are omitted rather than failing the fetch. */
   restrictedOrgs: string[]
   /** Why a successful search may still have omitted older pull requests. */
-  incompleteReasons: SearchStopReason[]
+  incompleteReasons: IncompleteReason[]
 }
 
 /** `restriction`: an org restriction cut the search off and only what came before it is kept. */
-export type SearchStopReason = 'page-limit' | 'rate-limit' | 'bad-cursor' | 'restriction'
+export type IncompleteReason = 'page-limit' | 'rate-limit' | 'bad-cursor' | 'restriction'
 
 interface SearchPage {
   nodes: Array<{ id?: string } | null>
@@ -170,7 +170,7 @@ async function searchPages(
   client: GraphQLClient,
   q: string,
   found: string[],
-): Promise<SearchStopReason | null> {
+): Promise<IncompleteReason | null> {
   let after: string | null = null
   const seen = new Set<string>()
 
@@ -213,7 +213,7 @@ const MAX_EXCLUSION_ROUNDS = 5
 async function searchBucket(
   client: GraphQLClient,
   bucket: SearchBucket,
-): Promise<{ ids: string[]; restrictedOrgs: string[]; incompleteReasons: SearchStopReason[] }> {
+): Promise<{ ids: string[]; restrictedOrgs: string[]; incompleteReasons: IncompleteReason[] }> {
   const excluded: string[] = []
   let lastRestriction: unknown = null
   let found: string[] = []
@@ -327,7 +327,7 @@ async function fetchDetails(
 async function collectIds(client: GraphQLClient): Promise<{
   byId: Map<string, Set<SearchBucket>>
   restrictedOrgs: string[]
-  incompleteReasons: SearchStopReason[]
+  incompleteReasons: IncompleteReason[]
 }> {
   const results = await Promise.all(
     SEARCH_BUCKETS.map(async (bucket) => {

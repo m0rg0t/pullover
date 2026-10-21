@@ -10,18 +10,25 @@ import {
   fetchPullRequests,
   fetchViewerLogin,
   type GraphQLClient,
-  type SearchStopReason,
+  type IncompleteReason,
 } from './github/fetch-prs'
 import { formatRestrictedOrgs } from './github/org-restriction'
 import { rateLimitResetAt } from './github/rate-limit'
 import type { AppStore } from './store'
 
-function searchWarning(reasons: SearchStopReason[]): string | null {
-  if (reasons.includes('rate-limit')) return 'Quota low; some PRs may be missing'
-  if (reasons.includes('page-limit')) return 'Older PRs may be missing'
-  if (reasons.includes('restriction')) return 'Search cut short; PRs may be missing'
-  if (reasons.includes('bad-cursor')) return 'Search interrupted; PRs may be missing'
-  return null
+/** In the order they are shown: only the first that applies makes it into the header. */
+const SEARCH_WARNINGS: Record<IncompleteReason, string> = {
+  'rate-limit': 'Quota low; some PRs may be missing',
+  'page-limit': 'Older PRs may be missing',
+  restriction: 'Search cut short; PRs may be missing',
+  'bad-cursor': 'Search interrupted; PRs may be missing',
+}
+
+function searchWarning(reasons: IncompleteReason[]): string | null {
+  const shown = (Object.keys(SEARCH_WARNINGS) as IncompleteReason[]).find((reason) =>
+    reasons.includes(reason),
+  )
+  return shown === undefined ? null : SEARCH_WARNINGS[shown]
 }
 
 export interface InboxDeps {
