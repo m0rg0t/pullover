@@ -4,6 +4,7 @@ import type { UpdateState } from '@shared/types'
 import { ArrowDownToLine, RefreshCw, Settings } from 'lucide-react'
 import { useState } from 'react'
 import { Button, Text, View } from 'reshaped/bundle'
+import { isPartialInbox } from './inbox-status'
 import Marquee from './Marquee'
 
 interface Props {
@@ -13,6 +14,11 @@ interface Props {
   onRefresh: () => void
   onOpenSettings: () => void
   onInstallUpdate: () => void
+}
+
+function headline(snapshot: InboxSnapshot): string {
+  if (snapshot.attentionCount > 0) return 'waiting on you'
+  return isPartialInbox(snapshot) ? 'Partial inbox' : 'All clear'
 }
 
 /**
@@ -100,11 +106,7 @@ export default function Header({
           }}
         >
           <Text as="span" variant="body-2" weight="semibold" color="neutral" maxLines={1}>
-            {snapshot.attentionCount > 0
-              ? 'waiting on you'
-              : snapshot.status === 'ready' && snapshot.errorMessage !== null
-                ? 'Partial inbox'
-                : 'All clear'}
+            {headline(snapshot)}
           </Text>
           <Text as="div" variant="caption-1" color="neutral-faded">
             <Marquee active={statusHovered}>{statusText(snapshot, now)}</Marquee>

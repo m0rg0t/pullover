@@ -1,5 +1,7 @@
+import type { InboxSnapshot } from '@shared/ipc'
 import { Check, CloudOff, TriangleAlert } from 'lucide-react'
 import { Icon, Text, View } from 'reshaped/bundle'
+import { isPartialInbox } from './inbox-status'
 
 const STATES = {
   zero: {
@@ -22,8 +24,16 @@ const STATES = {
   },
 } as const
 
+type Kind = keyof typeof STATES
+
+export function emptyStateKind(snapshot: InboxSnapshot): Kind {
+  if (snapshot.status === 'error') return 'error'
+  if (isPartialInbox(snapshot)) return 'partial'
+  return 'zero'
+}
+
 interface Props {
-  kind: keyof typeof STATES
+  kind: Kind
 }
 
 export default function EmptyState({ kind }: Props): React.JSX.Element {

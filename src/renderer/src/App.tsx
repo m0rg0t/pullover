@@ -2,7 +2,7 @@ import { orderSection } from '@core/stack'
 import { type Category, type ClassifiedPullRequest, VISIBLE_CATEGORIES } from '@shared/types'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { Divider, Loader, ScrollArea, Text, useHotkeys, View } from 'reshaped/bundle'
-import EmptyState from './components/EmptyState'
+import EmptyState, { emptyStateKind } from './components/EmptyState'
 import Header from './components/Header'
 import InboxSection from './components/InboxSection'
 import SettingsPanel from './components/SettingsPanel'
@@ -227,17 +227,7 @@ export default function App(): React.JSX.Element {
           className="pv-scroll"
           scrollableClassName="pv-scroll-content"
         >
-          {showEmptyState && (
-            <EmptyState
-              kind={
-                snapshot.status === 'error'
-                  ? 'error'
-                  : snapshot.status === 'ready' && snapshot.errorMessage !== null
-                    ? 'partial'
-                    : 'zero'
-              }
-            />
-          )}
+          {showEmptyState && <EmptyState kind={emptyStateKind(snapshot)} />}
 
           {/* The rules live between the blocks rather than on them: a seam
               belongs to neither side, and only out here is it known what a
