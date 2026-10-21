@@ -161,39 +161,44 @@ const MAX_SEARCH_PAGES = 2
  */
 const SEARCH_RATE_RESERVE = 500
 
+interface PagedSearch {
+  ids: string[]
+  /** Why the search stopped before its last page, or null when it got there. */
+  stop: IncompleteReason | null
+  /** What cut it off, with `ids` still holding the pages that came before. */
+  failure?: unknown
+}
+
 /**
  * Walks a search's pages until GitHub says there are no more, the page cap is
- * reached, or the quota runs low. `found` keeps earlier pages when an org
- * restriction provides only a partial response.
+ * reached, or the quota runs low. A failure is returned rather than thrown, so
+ * the pages before it travel with it.
  */
-async function searchPages(
-  client: GraphQLClient,
-  q: string,
-  found: string[],
-): Promise<IncompleteReason | null> {
+async function searchPages(client: GraphQLClient, q: string): Promise<PagedSearch> {
+  const ids: string[] = []
   let after: string | null = null
-  const seen = new Set<string>()
+  try {
+    for (let page = 0; page < MAX_SEARCH_PAGES; page++) {
+      const data: unknown = await retryTransient(() => client(SEARCH_QUERY, { q, after }))
+      const result = searchPage(data)
+      // An answer without a result set is broken, not empty. Reporting it as
+      // an empty bucket is the one mistake this whole function exists to avoid.
+      if (result === null) throw new Error('GitHub answered the search with no result set')
+      ids.push(...idsFromSearch(result.nodes))
 
-  for (let page = 0; page < MAX_SEARCH_PAGES; page++) {
-    const cursor = after
-    const data = await retryTransient(() => client(SEARCH_QUERY, { q, after: cursor }))
-    const result = searchPage(data)
-    // An answer without a result set is broken, not empty. Reporting it as
-    // an empty bucket is the one mistake this whole function exists to avoid.
-    if (result === null) throw new Error('GitHub answered the search with no result set')
-    found.push(...idsFromSearch(result.nodes))
-
-    if (!result.pageInfo?.hasNextPage) return null
-    const next = result.pageInfo.endCursor
-    if (next === null || seen.has(next)) return 'bad-cursor'
-    const remaining = (data as RateLimitFields).rateLimit?.remaining
-    if (remaining !== undefined && remaining < SEARCH_RATE_RESERVE) {
-      return 'rate-limit'
+      if (!result.pageInfo?.hasNextPage) return { ids, stop: null }
+      const next = result.pageInfo.endCursor
+      if (next === null || next === after) return { ids, stop: 'bad-cursor' }
+      const remaining = (data as RateLimitFields).rateLimit?.remaining
+      if (remaining !== undefined && remaining < SEARCH_RATE_RESERVE) {
+        return { ids, stop: 'rate-limit' }
+      }
+      after = next
     }
-    seen.add(next)
-    after = next
+    return { ids, stop: 'page-limit' }
+  } catch (failure) {
+    return { ids, stop: null, failure }
   }
-  return 'page-limit'
 }
 
 /**
@@ -215,39 +220,37 @@ async function searchBucket(
   bucket: SearchBucket,
 ): Promise<{ ids: string[]; restrictedOrgs: string[]; incompleteReasons: IncompleteReason[] }> {
   const excluded: string[] = []
-  let lastRestriction: unknown = null
-  let found: string[] = []
 
-  for (let round = 0; round < MAX_EXCLUSION_ROUNDS; round++) {
-    // Each round is a different query, so its cursors start over too.
-    found = []
-    try {
-      const reason = await searchPages(client, buildSearchQuery(bucket, excluded), found)
-      return { ids: found, restrictedOrgs: excluded, incompleteReasons: reason ? [reason] : [] }
-    } catch (error) {
-      const named = restrictedOrganizations(error)
-      if (named.length === 0 || !isOnlyRestriction(error)) throw error
-
-      lastRestriction = error
-      const fresh = named.filter((org) => !excluded.includes(org))
-      if (fresh.length === 0) break
-      excluded.push(...fresh)
+  for (let round = 1; ; round++) {
+    const search = await searchPages(client, buildSearchQuery(bucket, excluded))
+    if (search.failure === undefined) {
+      return {
+        ids: search.ids,
+        restrictedOrgs: excluded,
+        incompleteReasons: search.stop === null ? [] : [search.stop],
+      }
     }
-  }
 
-  // Either GitHub named the same orgs again or the rounds ran out. Excluding
-  // more is not going to produce a clean response, so keep whatever came back
-  // alongside the last error rather than dropping the bucket entirely — but
-  // only if something did: earlier pages in `found`, or a payload on the
-  // error. With neither there is nothing to stand in for the bucket, and
-  // answering "empty" would be a lie the user acts on.
-  const salvaged = searchPage(graphqlPartialData(lastRestriction))
-  if (salvaged === null && found.length === 0) throw lastRestriction
-  return {
-    ids: [...found, ...idsFromSearch(salvaged?.nodes ?? [])],
-    restrictedOrgs: excluded,
-    // Complete only when the payload itself says it was the last page.
-    incompleteReasons: salvaged?.pageInfo?.hasNextPage === false ? [] : ['restriction'],
+    const named = restrictedOrganizations(search.failure)
+    if (named.length === 0 || !isOnlyRestriction(search.failure)) throw search.failure
+    const fresh = named.filter((org) => !excluded.includes(org))
+    excluded.push(...fresh)
+    if (fresh.length > 0 && round < MAX_EXCLUSION_ROUNDS) continue
+
+    // Either GitHub named the same orgs again or the rounds ran out. Excluding
+    // more is not going to produce a clean response, so keep whatever came
+    // back rather than dropping the bucket entirely — but only if something
+    // did: pages before the failure, or a payload on it. With neither there is
+    // nothing to stand in for the bucket, and answering "empty" would be a lie
+    // the user acts on.
+    const salvaged = searchPage(graphqlPartialData(search.failure))
+    if (salvaged === null && search.ids.length === 0) throw search.failure
+    return {
+      ids: [...search.ids, ...idsFromSearch(salvaged?.nodes ?? [])],
+      restrictedOrgs: excluded,
+      // Complete only when the payload itself says it was the last page.
+      incompleteReasons: salvaged?.pageInfo?.hasNextPage === false ? [] : ['restriction'],
+    }
   }
 }
 
