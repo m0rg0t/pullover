@@ -6,10 +6,30 @@ import type { InboxSnapshot } from '@shared/ipc'
 import type { ClassifiedPullRequest, PullRequest } from '@shared/types'
 import { isAuthError } from './github/auth-error'
 import { describeError } from './github/error-message'
-import { fetchPullRequests, fetchViewerLogin, type GraphQLClient } from './github/fetch-prs'
+import {
+  fetchPullRequests,
+  fetchViewerLogin,
+  type GraphQLClient,
+  type IncompleteReason,
+} from './github/fetch-prs'
 import { formatRestrictedOrgs } from './github/org-restriction'
 import { rateLimitResetAt } from './github/rate-limit'
 import type { AppStore } from './store'
+
+/** In the order they are shown: only the first that applies makes it into the header. */
+const SEARCH_WARNINGS: Record<IncompleteReason, string> = {
+  'rate-limit': 'Quota low; some PRs may be missing',
+  'page-limit': 'Older PRs may be missing',
+  restriction: 'Search cut short; PRs may be missing',
+  'bad-cursor': 'Search interrupted; PRs may be missing',
+}
+
+function searchWarning(reasons: IncompleteReason[]): string | null {
+  const shown = (Object.keys(SEARCH_WARNINGS) as IncompleteReason[]).find((reason) =>
+    reasons.includes(reason),
+  )
+  return shown === undefined ? null : SEARCH_WARNINGS[shown]
+}
 
 export interface InboxDeps {
   store: AppStore
@@ -221,7 +241,7 @@ export class Inbox {
       // Always fetch unfiltered: the picker's options come from what shows
       // up in the inbox, so the search itself must never be narrowed by the
       // repository selection.
-      const { prs, restrictedOrgs } = await this.fetchPrs(client, myLogin)
+      const { prs, restrictedOrgs, incompleteReasons } = await this.fetchPrs(client, myLogin)
       this.prs = prs
 
       const settings = this.deps.store.getSettings()
@@ -234,12 +254,17 @@ export class Inbox {
       const items = this.attachStacks(classifyAll(filtered, this.classifyContext(myLogin, now)))
 
       this.rateLimitedUntil = null
+      // The org first: it is the one the user can do something about.
+      const warnings = [
+        formatRestrictedOrgs(restrictedOrgs),
+        searchWarning(incompleteReasons),
+      ].filter((warning): warning is string => warning !== null)
       this.emit({
         status: 'ready',
         items,
         attentionCount: countAttention(items),
         lastUpdatedAt: now,
-        errorMessage: formatRestrictedOrgs(restrictedOrgs),
+        errorMessage: warnings.length > 0 ? warnings.join(' · ') : null,
         myLogin: this.myLogin,
         knownRepositories: collectRepositories(this.prs),
       })

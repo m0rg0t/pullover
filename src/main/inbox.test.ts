@@ -24,7 +24,7 @@ class MemoryStore implements KeyValueStore {
 
 /** What `fetchPullRequests` resolves to, for stubs that only care about the PRs. */
 function fetched(prs: PullRequest[]): FetchedPullRequests {
-  return { prs, restrictedOrgs: [] }
+  return { prs, restrictedOrgs: [], incompleteReasons: [] }
 }
 
 const NOW = '2026-08-10T12:00:00Z'
@@ -170,6 +170,7 @@ describe('Inbox.refresh', () => {
     const fetchPrs = vi.fn(async () => ({
       prs: [makePullRequest({ id: 'PR_1', buckets: ['review-requested'] })],
       restrictedOrgs: ['status-im'],
+      incompleteReasons: [],
     }))
     const inbox = build([], { fetchPrs })
 
@@ -179,6 +180,43 @@ describe('Inbox.refresh', () => {
     expect(snapshot.status).toBe('ready')
     expect(snapshot.items.map((item) => item.pr.id)).toEqual(['PR_1'])
     expect(snapshot.errorMessage).toBe("status-im hasn't approved Pullover")
+  })
+
+  it.each([
+    ['page-limit', 'Older PRs may be missing'],
+    ['rate-limit', 'Quota low; some PRs may be missing'],
+    ['bad-cursor', 'Search interrupted; PRs may be missing'],
+    ['restriction', 'Search cut short; PRs may be missing'],
+  ] as const)('keeps the inbox ready and reports %s', async (reason, warning) => {
+    const fetchPrs = vi.fn(async () => ({
+      prs: [],
+      restrictedOrgs: [],
+      incompleteReasons: [reason],
+    }))
+    const inbox = build([], { fetchPrs })
+
+    await inbox.refresh()
+
+    expect(inbox.getSnapshot()).toMatchObject({
+      status: 'ready',
+      attentionCount: 0,
+      errorMessage: warning,
+    })
+  })
+
+  it('names the org before the search warning', async () => {
+    const fetchPrs = vi.fn(async () => ({
+      prs: [],
+      restrictedOrgs: ['status-im'],
+      incompleteReasons: ['page-limit' as const],
+    }))
+    const inbox = build([], { fetchPrs })
+
+    await inbox.refresh()
+
+    expect(inbox.getSnapshot().errorMessage).toBe(
+      "status-im hasn't approved Pullover · Older PRs may be missing",
+    )
   })
 
   it('classifies fetched PRs and counts the ones needing attention', async () => {

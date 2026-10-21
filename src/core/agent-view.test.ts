@@ -159,6 +159,18 @@ describe('describeInbox', () => {
     expect(result.sections).toHaveLength(1)
   })
 
+  it('warns on a healthy list when the search stopped before the oldest PRs', () => {
+    const result = describeInbox(
+      snapshot([item('needs-review')], {
+        status: 'ready',
+        errorMessage: 'Older PRs may be missing',
+      }),
+      { includeWaiting: false },
+    )
+    expect(result.notice).toBe('Older PRs may be missing')
+    expect(result.sections).toHaveLength(1)
+  })
+
   it('says the list is the last completed one while a refresh runs', () => {
     const result = describeInbox(snapshot([], { status: 'loading' }), { includeWaiting: false })
     expect(result.notice).toMatch(/last completed/i)
