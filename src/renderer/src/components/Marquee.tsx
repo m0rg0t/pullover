@@ -14,7 +14,7 @@ const HOLD_SECONDS = 0.7
 interface Props {
   /** Scrolls only while its row is the one under the cursor. */
   active: boolean
-  children: React.ReactNode
+  children: string
 }
 
 /**

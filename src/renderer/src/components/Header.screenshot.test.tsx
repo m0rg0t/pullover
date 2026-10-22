@@ -47,15 +47,6 @@ visualCase(
   'partial-gitlab-inbox',
   header(snapshot({ errorMessage: 'Some MRs may be missing' }), NO_UPDATE, true),
 )
-visualCase(
-  'partial-inbox',
-  header(
-    snapshot({
-      attentionCount: 0,
-      errorMessage: 'GitHub search capped; older PRs may be missing',
-    }),
-  ),
-)
 
 // `statusText` folds the error and the staleness into one line, so the user
 // can still tell how old the list on screen is.
@@ -76,13 +67,28 @@ visualCase(
   ),
 )
 
-// A restricted org is a warning on an otherwise healthy list, drawn exactly
-// like a failed refresh — nothing here separates the two. What the baseline
-// is for is the length: a single short org name already elides the staleness
-// this line is supposed to keep visible.
+// A restricted org leaves the inbox usable but visibly partial. Staleness
+// comes first so a long warning cannot push it out of view.
 visualCase(
   'restricted-org',
   header(snapshot({ errorMessage: "status-im hasn't approved Pullover" })),
+)
+
+visualCase(
+  'partial-inbox',
+  header(snapshot({ attentionCount: 0, errorMessage: 'Older PRs may be missing' })),
+)
+
+// Both warnings at once: longer than the line, so it fades out at the edge
+// and scrolls on hover rather than ending in an ellipsis.
+visualCase(
+  'partial-inbox-restricted-org',
+  header(
+    snapshot({
+      attentionCount: 0,
+      errorMessage: "status-im hasn't approved Pullover · Older PRs may be missing",
+    }),
+  ),
 )
 
 visualCase('update-ready', header(snapshot(), { status: 'ready', version: '0.9.0' }))

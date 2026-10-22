@@ -10,13 +10,28 @@ import {
   fetchPullRequests,
   fetchViewerLogin,
   type GraphQLClient,
-  type SearchStopReason,
+  type IncompleteReason,
 } from './github/fetch-prs'
 import { formatRestrictedOrgs } from './github/org-restriction'
 import { rateLimitResetAt } from './github/rate-limit'
 import { type GitLabClient, GitLabHttpError } from './gitlab/client'
 import { fetchGitLabMergeRequests, fetchGitLabViewer } from './gitlab/fetch-mrs'
 import type { AppStore } from './store'
+
+/** In the order they are shown: only the first that applies makes it into the header. */
+const SEARCH_WARNINGS: Record<IncompleteReason, string> = {
+  'rate-limit': 'Quota low; some PRs may be missing',
+  'page-limit': 'Older PRs may be missing',
+  restriction: 'Search cut short; PRs may be missing',
+  'bad-cursor': 'Search interrupted; PRs may be missing',
+}
+
+function searchWarning(reasons: IncompleteReason[]): string | null {
+  const shown = (Object.keys(SEARCH_WARNINGS) as IncompleteReason[]).find((reason) =>
+    reasons.includes(reason),
+  )
+  return shown === undefined ? null : SEARCH_WARNINGS[shown]
+}
 
 export interface InboxDeps {
   store: AppStore
@@ -40,14 +55,6 @@ export interface InboxDeps {
 export interface FailedAccount {
   provider: Provider
   client: GraphQLClient | GitLabClient
-}
-
-function searchWarning(reasons: SearchStopReason[]): string | null {
-  if (reasons.includes('rate-limit')) return 'GitHub quota low; some PRs may be missing'
-  if (reasons.includes('page-limit')) return 'GitHub search capped; older PRs may be missing'
-  if (reasons.includes('restriction')) return 'GitHub search cut short; some PRs may be missing'
-  if (reasons.includes('bad-cursor')) return 'GitHub search interrupted; some PRs may be missing'
-  return null
 }
 
 export class Inbox {
@@ -295,9 +302,10 @@ export class Inbox {
       const items = this.attachStacks(classifyAll(filtered, this.classifyContext(myLogin, now)))
 
       this.rateLimitedUntil = null
+      // The org first: it is the one the user can do something about.
       const warnings = [
-        searchWarning(incompleteReasons),
         formatRestrictedOrgs(restrictedOrgs),
+        searchWarning(incompleteReasons),
       ].filter((warning): warning is string => warning !== null)
       this.emit({
         status: 'ready',

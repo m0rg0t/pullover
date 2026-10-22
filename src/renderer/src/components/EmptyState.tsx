@@ -1,5 +1,7 @@
+import type { InboxSnapshot } from '@shared/ipc'
 import { Check, CloudOff, SearchX, TriangleAlert } from 'lucide-react'
 import { Icon, Text, View } from 'reshaped/bundle'
+import { isPartialInbox } from './inbox-status'
 
 const STATES = {
   zero: {
@@ -28,8 +30,16 @@ const STATES = {
   },
 } as const
 
+type Kind = keyof typeof STATES
+
+export function emptyStateKind(snapshot: InboxSnapshot, noGitLabMrs = false): Kind {
+  if (snapshot.status === 'error') return 'error'
+  if (isPartialInbox(snapshot)) return 'partial'
+  return noGitLabMrs ? 'no-mrs' : 'zero'
+}
+
 interface Props {
-  kind: keyof typeof STATES
+  kind: Kind
   account?: string | null
 }
 

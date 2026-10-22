@@ -2,7 +2,10 @@ import { formatAge } from '@core/format'
 import type { InboxSnapshot } from '@shared/ipc'
 import type { UpdateState } from '@shared/types'
 import { ArrowDownToLine, RefreshCw, Settings } from 'lucide-react'
+import { useState } from 'react'
 import { Button, Text, View } from 'reshaped/bundle'
+import { isPartialInbox } from './inbox-status'
+import Marquee from './Marquee'
 
 interface Props {
   snapshot: InboxSnapshot
@@ -12,6 +15,12 @@ interface Props {
   onOpenSettings: () => void
   onInstallUpdate: () => void
   noGitLabMrs?: boolean
+}
+
+function headline(snapshot: InboxSnapshot, noGitLabMrs: boolean): string {
+  if (snapshot.attentionCount > 0) return 'waiting on you'
+  if (isPartialInbox(snapshot)) return 'Partial inbox'
+  return noGitLabMrs ? 'No MRs found' : 'All clear'
 }
 
 /**
@@ -27,7 +36,7 @@ function statusText(snapshot: InboxSnapshot, now: string): string {
   if (snapshot.lastUpdatedAt === null) {
     return snapshot.errorMessage
   }
-  return `${snapshot.errorMessage} · last updated ${formatAge(snapshot.lastUpdatedAt, now)}`
+  return `Updated ${formatAge(snapshot.lastUpdatedAt, now)} · ${snapshot.errorMessage}`
 }
 
 // Button's size steps don't land on 32×32 with a 9px radius, so the box
@@ -52,6 +61,8 @@ export default function Header({
 }: Props): React.JSX.Element {
   const updateReady = update.status === 'ready' && update.version !== null
   const updateLabel = `Restart to update to ${update.version}`
+  const [statusHovered, setStatusHovered] = useState(false)
+  const status = statusText(snapshot, now)
   return (
     <View
       direction="row"
@@ -64,6 +75,7 @@ export default function Header({
       backgroundColor="elevation-raised"
       borderColor="neutral"
       borderBottom
+      className="pv-header"
     >
       {/* `grow` does two things here, and both are needed: a row `View` wraps
           by default, and a growing child switches its parent to nowrap — so
@@ -89,18 +101,24 @@ export default function Header({
             </Text>
           </View>
         )}
-        <View direction="column" grow minWidth={0}>
+        <View
+          direction="column"
+          grow
+          minWidth={0}
+          attributes={{
+            onMouseEnter: () => setStatusHovered(true),
+            onMouseLeave: () => setStatusHovered(false),
+          }}
+        >
           <Text as="span" variant="body-2" weight="semibold" color="neutral" maxLines={1}>
-            {snapshot.attentionCount > 0
-              ? 'waiting on you'
-              : snapshot.status === 'ready' && snapshot.errorMessage !== null
-                ? 'Partial inbox'
-                : noGitLabMrs
-                  ? 'No MRs found'
-                  : 'All clear'}
+            {headline(snapshot, noGitLabMrs)}
           </Text>
-          <Text as="span" variant="caption-1" color="neutral-faded" maxLines={1}>
-            {statusText(snapshot, now)}
+          <Text as="div" variant="caption-1" color="neutral-faded">
+            {/* Keyed by the text: the line changes under the cursor every
+                minute, and a fresh Marquee measures it anew. */}
+            <Marquee key={status} active={statusHovered}>
+              {status}
+            </Marquee>
           </Text>
         </View>
       </View>
